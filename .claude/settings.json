@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell($b=\"c:\\\\Users\\\\DELL\\\\boq-mvp\\\\backend\"; $env:DATABASE_URL=\"postgresql+psycopg://x:y@localhost:5433/z\"; & \"$b\\\\.venv\\\\Scripts\\\\python.exe\" -c \"import sys; sys.path.insert\\(0,r'$b'\\); from app.main import app; print\\('OK routes:', sorted\\(r.path for r in app.routes if hasattr\\(r,'path'\\)\\)\\)\")"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\DELL\\.claude\\projects\\c--Users-DELL-boq-mvp\\memory"
+    ]
+  }
+}

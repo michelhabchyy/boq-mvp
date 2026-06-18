@@ -1,0 +1,9 @@
+SCOPE LINE
+  Description: {description}
+  Quantity: {quantity}
+  Unit: {unit}
+
+CATALOG CANDIDATES (choose only from these `code` values)
+{candidates}
+
+Decompose the scope line into the catalog item(s) it requires, following the rules.

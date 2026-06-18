@@ -1,0 +1,35 @@
+# --- Secrets / env (NEVER commit) ---
+.env
+.env.*
+!*.example
+frontend/.env.local
+
+# --- temp / scratch ---
+_*.py
+*.output
+NUL
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# --- Node / Next.js ---
+node_modules/
+.next/
+out/
+npm-debug.log*
+yarn-error.log*
+
+# --- Data / uploads (created in later steps) ---
+/data/
+uploads/
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

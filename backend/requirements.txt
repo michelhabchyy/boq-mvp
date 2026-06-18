@@ -1,0 +1,30 @@
+# Web framework + ASGI server
+fastapi>=0.115
+uvicorn[standard]>=0.32
+
+# Database: SQLAlchemy 2.x + psycopg 3 driver + pgvector type support
+sqlalchemy>=2.0
+psycopg[binary]>=3.2
+pgvector>=0.3
+
+# Config from .env
+pydantic-settings>=2.5
+
+# Multipart form parsing (needed for file uploads)
+python-multipart>=0.0.12
+
+# Excel (.xlsx) reading/writing for catalog ingestion and BoQ export
+openpyxl>=3.1
+
+# Word (.docx) reading for RFP ingestion
+python-docx>=1.1
+
+# Anthropic SDK — Claude LLM for the matching engine (Stage 4)
+anthropic>=0.69
+
+# Authentication: JWT tokens + password hashing
+PyJWT>=2.8
+bcrypt>=4.1
+
+# OpenAI SDK — embeddings provider (catalog semantic search)
+openai>=1.40

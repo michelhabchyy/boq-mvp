@@ -1,0 +1,9 @@
+item_code,description_ar,description_en,unit,material_cost,labour_cost,markup,brand
+DB-24W,لوحة توزيع كهربائية 24 خط,Distribution board 24-way,Each,450.00,120.00,15,Schneider
+CB-16A,قاطع كهربائي 16 أمبير,Circuit breaker 16A single pole,Each,12.50,3.00,20,Schneider
+WR-3C25,كابل نحاس 3 قلوب 2.5 مم2,Copper cable 3-core 2.5mm2,m,3.50,1.20,20,Nexans
+CDT-20,مواسير بلاستيكية 20 مم,PVC conduit 20mm,m,1.10,0.60,18,Pipelife
+SKT-DBL,مقبس كهربائي مزدوج,Double power socket outlet,Each,9.00,4.00,18,Legrand
+PNT-INT,دهان داخلي أبيض,Interior emulsion paint white,L,8.00,2.00,18,Jotun
+PLB-PVC110,ماسورة صرف صحي 110 مم,PVC drainage pipe 110mm,m,6.50,2.50,15,Tiger
+TILE-60,بلاط بورسلان 60x60 سم,Porcelain floor tile 60x60cm,m2,22.00,9.00,22,RAK Ceramics
