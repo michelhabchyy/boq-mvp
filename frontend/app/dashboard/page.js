@@ -6,7 +6,7 @@ import { api } from "../../lib/api";
 import { useAuth } from "../AppChrome";
 
 export default function DashboardPage() {
-  const { user, loading } = useAuth();
+  const { user, loading, enterCompany } = useAuth();
   const [ov, setOv] = useState(null);
   const [error, setError] = useState(null);
 
@@ -93,6 +93,7 @@ export default function DashboardPage() {
                 <th className="num">Catalog</th>
                 <th className="num">RFPs</th>
                 <th className="num">BoQ lines</th>
+                <th style={{ textAlign: "right" }}></th>
               </tr>
             </thead>
             <tbody>
@@ -111,6 +112,14 @@ export default function DashboardPage() {
                   <td className="num">{c.catalog_items}</td>
                   <td className="num">{c.rfps}</td>
                   <td className="num">{c.boq_lines}</td>
+                  <td className="cell-actions">
+                    <button
+                      className="btn btn-sm btn-primary"
+                      onClick={() => enterCompany({ id: c.id, name: c.name })}
+                    >
+                      Open →
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>

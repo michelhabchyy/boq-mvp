@@ -5,7 +5,7 @@ import { api } from "../../lib/api";
 import { useAuth } from "../AppChrome";
 
 export default function SubcontractorsPage() {
-  const { user, loading } = useAuth();
+  const { user, loading, canAdmin } = useAuth();
   const [subs, setSubs] = useState(null);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(null);
@@ -18,8 +18,8 @@ export default function SubcontractorsPage() {
     []
   );
   useEffect(() => {
-    if (!loading && user?.role === "admin") load();
-  }, [loading, user, load]);
+    if (!loading && canAdmin) load();
+  }, [loading, canAdmin, load]);
 
   async function act(key, fn) {
     setBusy(key);
@@ -35,7 +35,7 @@ export default function SubcontractorsPage() {
   }
 
   if (loading) return <main className="container" />;
-  if (user && user.role !== "admin")
+  if (user && !canAdmin)
     return (
       <main className="container narrow">
         <div className="panel">

@@ -5,7 +5,7 @@ import { api } from "../../lib/api";
 import { useAuth } from "../AppChrome";
 
 export default function CompaniesPage() {
-  const { user, loading } = useAuth();
+  const { user, loading, enterCompany } = useAuth();
   const [companies, setCompanies] = useState(null);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(null);
@@ -138,6 +138,13 @@ export default function CompaniesPage() {
                     </span>
                   </td>
                   <td className="cell-actions">
+                    <button
+                      className="btn btn-sm btn-primary"
+                      onClick={() => enterCompany({ id: co.id, name: co.name })}
+                      title="Open this company and manage it as its admin"
+                    >
+                      Open →
+                    </button>
                     <button
                       className="btn btn-sm"
                       onClick={() =>

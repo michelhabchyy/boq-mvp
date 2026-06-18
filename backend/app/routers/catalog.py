@@ -5,7 +5,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
-from ..auth import current_company_id, require_company_admin, require_owner
+from ..auth import admin_company_id, current_company_id, require_owner
 from ..catalog_loader import parse_catalog_file
 from ..config import settings
 from ..db import get_db
@@ -46,9 +46,8 @@ async def upload_catalog(
         False, description="Load valid rows and skip bad ones instead of rejecting the file"
     ),
     db: Session = Depends(get_db),
-    admin=Depends(require_company_admin),
+    cid: int = Depends(admin_company_id),
 ):
-    cid = admin.company_id
     content = await file.read()
     try:
         parsed = parse_catalog_file(file.filename or "", content)
@@ -102,9 +101,8 @@ async def upload_catalog(
 def create_item(
     payload: CatalogItemIn,
     db: Session = Depends(get_db),
-    admin=Depends(require_company_admin),
+    cid: int = Depends(admin_company_id),
 ):
-    cid = admin.company_id
     exists = db.execute(
         select(CatalogItem).where(
             CatalogItem.company_id == cid, CatalogItem.item_code == payload.item_code
@@ -125,9 +123,8 @@ def update_item(
     item_id: int,
     payload: CatalogItemPatch,
     db: Session = Depends(get_db),
-    admin=Depends(require_company_admin),
+    cid: int = Depends(admin_company_id),
 ):
-    cid = admin.company_id
     item = _owned(db, item_id, cid)
     fields = payload.model_dump(exclude_unset=True)
     if "item_code" in fields and fields["item_code"] != item.item_code:
@@ -150,9 +147,9 @@ def update_item(
 
 @router.delete("/item/{item_id}")
 def delete_item(
-    item_id: int, db: Session = Depends(get_db), admin=Depends(require_company_admin)
+    item_id: int, db: Session = Depends(get_db), cid: int = Depends(admin_company_id)
 ):
-    item = _owned(db, item_id, admin.company_id)
+    item = _owned(db, item_id, cid)
     db.delete(item)
     db.commit()
     return {"deleted": item_id}
@@ -189,10 +186,8 @@ def catalog_count(db: Session = Depends(get_db), cid: int = Depends(current_comp
 
 
 @router.delete("")
-def clear_catalog(db: Session = Depends(get_db), admin=Depends(require_company_admin)):
-    deleted = (
-        db.query(CatalogItem).filter(CatalogItem.company_id == admin.company_id).delete()
-    )
+def clear_catalog(db: Session = Depends(get_db), cid: int = Depends(admin_company_id)):
+    deleted = db.query(CatalogItem).filter(CatalogItem.company_id == cid).delete()
     db.commit()
     return {"deleted": deleted}
 
@@ -222,9 +217,8 @@ def embedding_status(db: Session = Depends(get_db), cid: int = Depends(current_c
 def build_embeddings(
     force: bool = Query(False, description="Re-embed every item, not just missing ones"),
     db: Session = Depends(get_db),
-    admin=Depends(require_company_admin),
+    cid: int = Depends(admin_company_id),
 ):
-    cid = admin.company_id
     embedder = get_embedder()
     stmt = select(CatalogItem).where(CatalogItem.company_id == cid)
     if not force:

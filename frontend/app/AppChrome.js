@@ -3,7 +3,13 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
-import { api, getToken } from "../lib/api";
+import {
+  api,
+  getToken,
+  getActingCompany,
+  setActingCompany as persistActingCompany,
+  clearActingCompany,
+} from "../lib/api";
 
 const AuthContext = createContext({ user: null, loading: true });
 export const useAuth = () => useContext(AuthContext);
@@ -15,6 +21,7 @@ export default function AppChrome({ children }) {
   const router = useRouter();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [acting, setActing] = useState(null);
   const isLogin = pathname?.startsWith("/login");
 
   useEffect(() => {
@@ -26,49 +33,83 @@ export default function AppChrome({ children }) {
       router.replace("/login");
       return;
     }
+    setActing(getActingCompany());
     api
       .get("/auth/me")
       .then((u) => {
         setUser(u);
         setLoading(false);
-        // Keep each role in its own area.
+        // Owner with no company selected belongs in the platform area.
         const ownerArea =
           pathname?.startsWith("/dashboard") || pathname?.startsWith("/companies");
-        if (u.role === "owner" && !ownerArea) {
+        if (u.role === "owner" && !getActingCompany() && !ownerArea) {
           router.replace("/dashboard");
         } else if (u.role === "subcontractor" && !pathname?.startsWith("/my-items")) {
           router.replace("/my-items");
         }
       })
-      .catch(() => {
-        // api 401 handler already redirects to /login
-      });
+      .catch(() => {});
   }, [pathname, isLogin, router]);
 
+  function enterCompany(company) {
+    persistActingCompany(company);
+    setActing(company);
+    router.push("/");
+  }
+  function exitCompany() {
+    clearActingCompany();
+    setActing(null);
+    router.push("/dashboard");
+  }
+
+  // "Admin context" = a real company admin, OR the owner acting on a company.
+  const canAdmin =
+    user?.role === "admin" || (user?.role === "owner" && !!acting);
+
+  const ctx = { user, loading, acting, enterCompany, exitCompany, canAdmin };
+
   if (isLogin) {
-    return <AuthContext.Provider value={{ user: null, loading: false }}>{children}</AuthContext.Provider>;
+    return (
+      <AuthContext.Provider value={{ ...ctx, loading: false }}>
+        {children}
+      </AuthContext.Provider>
+    );
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading }}>
-      <TopBar user={user} pathname={pathname} />
+    <AuthContext.Provider value={ctx}>
+      <TopBar user={user} pathname={pathname} acting={acting} />
+      {acting && user?.role === "owner" && (
+        <div className="actbanner">
+          <span>
+            Viewing as <strong>{acting.name}</strong> <span className="muted">(owner)</span>
+          </span>
+          <button className="btn btn-sm" onClick={exitCompany}>
+            ← Exit to owner
+          </button>
+        </div>
+      )}
       {children}
     </AuthContext.Provider>
   );
 }
 
-function TopBar({ user, pathname }) {
+function TopBar({ user, pathname, acting }) {
   const role = user?.role;
   const isOwner = role === "owner";
   const isAdmin = role === "admin";
   const isSub = role === "subcontractor";
+  const ownerActing = isOwner && !!acting;
+  // Owner acting on a company gets the admin menu; idle owner gets the platform menu.
+  const adminMenu = isAdmin || ownerActing;
+
   const nav = [
-    { href: "/dashboard", label: "Dashboard", show: isOwner },
-    { href: "/companies", label: "Companies", show: isOwner },
-    { href: "/", label: "RFPs", show: role === "admin" || role === "reviewer" },
-    { href: "/catalog", label: "Catalog", show: isAdmin },
-    { href: "/subcontractors", label: "Subcontractors", show: isAdmin },
-    { href: "/users", label: "Users", show: isAdmin },
+    { href: "/dashboard", label: "Dashboard", show: isOwner && !ownerActing },
+    { href: "/companies", label: "Companies", show: isOwner && !ownerActing },
+    { href: "/", label: "RFPs", show: role === "reviewer" || adminMenu },
+    { href: "/catalog", label: "Catalog", show: adminMenu },
+    { href: "/subcontractors", label: "Subcontractors", show: adminMenu },
+    { href: "/users", label: "Users", show: adminMenu },
     { href: "/my-items", label: "My Items", show: isSub },
   ].filter((n) => n.show);
 
@@ -77,7 +118,7 @@ function TopBar({ user, pathname }) {
 
   return (
     <header className="topbar">
-      <Link className="brand" href="/" style={{ color: "#fff" }}>
+      <Link className="brand" href={isOwner && !ownerActing ? "/dashboard" : "/"} style={{ color: "#fff" }}>
         <span className="mark" />
         BoQ Automation
       </Link>

@@ -490,6 +490,19 @@ input[type="file"] {
   background: var(--surface-3);
 }
 
+/* ---------- Owner "acting as company" banner ---------- */
+.actbanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 22px;
+  background: var(--accent-soft);
+  border-bottom: 1px solid #fde68a;
+  color: var(--accent-text);
+  font-size: 13px;
+}
+
 /* ---------- Review sections ---------- */
 .section-head {
   display: flex;

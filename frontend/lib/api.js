@@ -12,9 +12,28 @@ function clearToken() {
   if (typeof window !== "undefined") localStorage.removeItem(TOKEN_KEY);
 }
 
+// When the OWNER "opens" a company, we store it here and send X-Company-Id so
+// the backend treats the owner as that company's admin (impersonation).
+const COMPANY_KEY = "boq_company";
+export function getActingCompany() {
+  if (typeof window === "undefined") return null;
+  const v = localStorage.getItem(COMPANY_KEY);
+  return v ? JSON.parse(v) : null;
+}
+export function setActingCompany(company) {
+  if (typeof window !== "undefined")
+    localStorage.setItem(COMPANY_KEY, JSON.stringify(company));
+}
+export function clearActingCompany() {
+  if (typeof window !== "undefined") localStorage.removeItem(COMPANY_KEY);
+}
+
 function authHeaders() {
   const t = getToken();
-  return t ? { Authorization: `Bearer ${t}` } : {};
+  const h = t ? { Authorization: `Bearer ${t}` } : {};
+  const co = getActingCompany();
+  if (co) h["X-Company-Id"] = String(co.id);
+  return h;
 }
 
 async function handle(res) {
@@ -78,6 +97,7 @@ export const api = {
   },
   logout() {
     clearToken();
+    clearActingCompany();
     if (typeof window !== "undefined") location.href = "/login";
   },
 };

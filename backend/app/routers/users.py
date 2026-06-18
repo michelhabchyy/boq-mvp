@@ -1,14 +1,12 @@
-"""User management within a company — company ADMIN only.
-
-A company admin manages users in their own company. Owner-level provisioning
-(creating companies + their first admin) lives in routers/companies.py.
-"""
+"""Staff (admin/reviewer) user management — company ADMIN, or the OWNER acting
+on a company via X-Company-Id. Company resolved by `admin_company_id`; the acting
+user is used only for self-protection (an admin can't lock themselves out)."""
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..auth import hash_password, require_company_admin
+from ..auth import admin_company_id, get_current_user, hash_password
 from ..db import get_db
 from ..models import User
 from ..schemas import UserCreate, UserOut, UserUpdate
@@ -19,13 +17,12 @@ COMPANY_ROLES = {"admin", "reviewer"}  # company admins cannot mint owners
 
 
 @router.get("", response_model=list[UserOut])
-def list_users(db: Session = Depends(get_db), me: User = Depends(require_company_admin)):
-    # Staff only (admin/reviewer). Subcontractor logins are managed under
-    # /subcontractors, so exclude them here.
+def list_users(db: Session = Depends(get_db), cid: int = Depends(admin_company_id)):
+    # Staff only — subcontractor logins are managed under /subcontractors.
     return (
         db.execute(
             select(User)
-            .where(User.company_id == me.company_id, User.subcontractor_id.is_(None))
+            .where(User.company_id == cid, User.subcontractor_id.is_(None))
             .order_by(User.username)
         )
         .scalars()
@@ -35,7 +32,7 @@ def list_users(db: Session = Depends(get_db), me: User = Depends(require_company
 
 @router.post("", response_model=UserOut)
 def create_user(
-    payload: UserCreate, db: Session = Depends(get_db), me: User = Depends(require_company_admin)
+    payload: UserCreate, db: Session = Depends(get_db), cid: int = Depends(admin_company_id)
 ):
     if payload.role not in COMPANY_ROLES:
         raise HTTPException(400, f"role must be one of {sorted(COMPANY_ROLES)}")
@@ -48,7 +45,7 @@ def create_user(
         full_name=payload.full_name,
         role=payload.role,
         password_hash=hash_password(payload.password),
-        company_id=me.company_id,  # always the admin's own company
+        company_id=cid,
         is_active=True,
     )
     db.add(user)
@@ -57,9 +54,9 @@ def create_user(
     return user
 
 
-def _own_company_user(db: Session, user_id: int, me: User) -> User:
+def _own_company_user(db: Session, user_id: int, cid: int) -> User:
     user = db.get(User, user_id)
-    if user is None or user.company_id != me.company_id:
+    if user is None or user.company_id != cid or user.subcontractor_id is not None:
         raise HTTPException(404, f"User {user_id} not found")
     return user
 
@@ -69,13 +66,14 @@ def update_user(
     user_id: int,
     payload: UserUpdate,
     db: Session = Depends(get_db),
-    me: User = Depends(require_company_admin),
+    cid: int = Depends(admin_company_id),
+    actor: User = Depends(get_current_user),
 ):
-    user = _own_company_user(db, user_id, me)
+    user = _own_company_user(db, user_id, cid)
     fields = payload.model_dump(exclude_unset=True)
     if "role" in fields and fields["role"] not in COMPANY_ROLES:
         raise HTTPException(400, f"role must be one of {sorted(COMPANY_ROLES)}")
-    if user.id == me.id:
+    if user.id == actor.id:  # only triggers for a real admin editing themselves
         if fields.get("is_active") is False:
             raise HTTPException(400, "You cannot deactivate your own account")
         if fields.get("role") == "reviewer":
@@ -93,11 +91,14 @@ def update_user(
 
 @router.delete("/{user_id}")
 def delete_user(
-    user_id: int, db: Session = Depends(get_db), me: User = Depends(require_company_admin)
+    user_id: int,
+    db: Session = Depends(get_db),
+    cid: int = Depends(admin_company_id),
+    actor: User = Depends(get_current_user),
 ):
-    if user_id == me.id:
+    if user_id == actor.id:
         raise HTTPException(400, "You cannot delete your own account")
-    user = _own_company_user(db, user_id, me)
+    user = _own_company_user(db, user_id, cid)
     db.delete(user)
     db.commit()
     return {"deleted": user_id}

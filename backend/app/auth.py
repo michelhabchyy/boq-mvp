@@ -12,14 +12,14 @@ from datetime import datetime, timedelta, timezone
 
 import bcrypt
 import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from .config import settings
 from .db import SessionLocal, get_db
-from .models import User
+from .models import Company, User
 
 ALGORITHM = "HS256"
 _bearer = HTTPBearer(auto_error=True)
@@ -126,18 +126,56 @@ def require_subcontractor(user: User = Depends(get_current_user)) -> User:
     return user
 
 
-def current_company_id(user: User = Depends(require_company_user)) -> int:
-    """Tenant id for estimator-side endpoints (catalog/RFP/matching/BoQ/output).
-
-    Subcontractors are NOT estimators — they only use /my-items — so they are
-    blocked here. This single guard fences them out of every estimator route.
-    """
-    if user.role not in ("admin", "reviewer"):
+def _owner_target_company(request: Request, db: Session) -> int:
+    """Resolve which company an OWNER is acting on, from the X-Company-Id header."""
+    raw = request.headers.get("x-company-id")
+    if not raw:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="This area is for the contractor's team, not subcontractors",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Owner must select a company (X-Company-Id header missing)",
         )
-    return user.company_id
+    try:
+        cid = int(raw)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid X-Company-Id")
+    if db.get(Company, cid) is None:
+        raise HTTPException(status_code=404, detail=f"Company {cid} not found")
+    return cid
+
+
+def current_company_id(
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> int:
+    """Tenant id for estimator-side endpoints (catalog reads / RFP / matching /
+    BoQ / output). admin & reviewer use their own company; the OWNER acts on the
+    company named in X-Company-Id (impersonation). Subcontractors are blocked.
+    Non-owners can't escape their tenant — the header is ignored for them.
+    """
+    if user.role == "owner":
+        return _owner_target_company(request, db)
+    if user.role in ("admin", "reviewer"):
+        return user.company_id
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="This area is for the contractor's team, not subcontractors",
+    )
+
+
+def admin_company_id(
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> int:
+    """Tenant id for ADMIN actions (catalog writes, users, subcontractors).
+    Company admins use their own company; the OWNER acts on X-Company-Id.
+    """
+    if user.role == "owner":
+        return _owner_target_company(request, db)
+    if user.role == "admin":
+        return user.company_id
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Company admin only")
 
 
 # --- bootstrap ---------------------------------------------------------------

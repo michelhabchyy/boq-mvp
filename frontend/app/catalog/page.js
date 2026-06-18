@@ -16,7 +16,7 @@ const BLANK = {
 };
 
 export default function CatalogPage() {
-  const { user, loading } = useAuth();
+  const { user, loading, canAdmin } = useAuth();
   const [items, setItems] = useState(null);
   const [status, setStatus] = useState(null);
   const [subs, setSubs] = useState({});
@@ -45,8 +45,8 @@ export default function CatalogPage() {
   );
 
   useEffect(() => {
-    if (!loading && user?.role === "admin") load();
-  }, [loading, user, load]);
+    if (!loading && canAdmin) load();
+  }, [loading, canAdmin, load]);
 
   async function act(key, fn) {
     setBusy(key);
@@ -69,7 +69,7 @@ export default function CatalogPage() {
   }
 
   if (loading) return <main className="container" />;
-  if (user && user.role !== "admin")
+  if (user && !canAdmin)
     return (
       <main className="container narrow">
         <div className="panel">
