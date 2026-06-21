@@ -1,6 +1,15 @@
 """RFP endpoints: upload a scope-of-work, list, fetch, delete."""
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, UploadFile
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    UploadFile,
+)
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -51,11 +60,16 @@ async def upload_rfp(
         description="Use AI to read the whole document and extract sections + items "
         "(runs in the background). Off = deterministic table parsing (synchronous).",
     ),
+    description: str = Form(""),
+    sample: UploadFile | None = File(None),
     db: Session = Depends(get_db),
     cid: int = Depends(current_company_id),
 ):
     content = await file.read()
     fname = file.filename or ""
+    guidance = (description or "").strip()
+    sample_fname = sample.filename if sample else ""
+    sample_content = await sample.read() if sample else None
 
     if analyze:
         if _source_type(fname) == "file":
@@ -67,11 +81,14 @@ async def upload_rfp(
             source_type=_source_type(fname),
             company_id=cid,
             status="analyzing",
+            notes=guidance or None,
         )
         db.add(doc)
         db.commit()
         db.refresh(doc)
-        background.add_task(_run_ai_analysis, doc.id, cid, fname, content)
+        background.add_task(
+            _run_ai_analysis, doc.id, cid, fname, content, guidance, sample_fname, sample_content
+        )
         return RFPUploadResult(
             rfp_id=doc.id,
             filename=doc.filename,
@@ -99,7 +116,11 @@ async def upload_rfp(
         )
 
     doc = RFPDocument(
-        filename=fname, source_type=parsed.source_type, company_id=cid, status="ready"
+        filename=fname,
+        source_type=parsed.source_type,
+        company_id=cid,
+        status="ready",
+        notes=guidance or None,
     )
     for i, line in enumerate(parsed.scope_lines, start=1):
         doc.lines.append(
@@ -125,9 +146,18 @@ async def upload_rfp(
     )
 
 
-def _run_ai_analysis(rfp_id: int, company_id: int, fname: str, content: bytes) -> None:
-    """Background worker: extract text, run the LLM, persist sections/items, and
-    set the document status. Uses its own DB session (the request's is closed)."""
+def _run_ai_analysis(
+    rfp_id: int,
+    company_id: int,
+    fname: str,
+    content: bytes,
+    guidance: str = "",
+    sample_fname: str = "",
+    sample_content: bytes | None = None,
+) -> None:
+    """Background worker: extract text, run the LLM (with the user's guidance +
+    optional reference BoQ sample), persist sections/items, and set status.
+    Uses its own DB session (the request's is already closed)."""
     db = SessionLocal()
     try:
         try:
@@ -136,7 +166,15 @@ def _run_ai_analysis(rfp_id: int, company_id: int, fname: str, content: bytes) -
                 raise ValueError(
                     "No readable text found (a scanned/image PDF needs OCR)."
                 )
-            analyzed = get_matcher().analyze_rfp(text)
+            sample_text = ""
+            if sample_content:
+                try:
+                    sample_text = extract_full_text(sample_fname, sample_content)
+                except Exception:
+                    sample_text = ""  # bad sample is non-fatal
+            analyzed = get_matcher().analyze_rfp(
+                text, guidance=guidance, sample_text=sample_text
+            )
             line_no = 0
             for s_no, section in enumerate(analyzed.sections, start=1):
                 for item in section.items:

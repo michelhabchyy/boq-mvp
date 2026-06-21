@@ -83,6 +83,13 @@ export const api = {
       body: fd,
     }).then(handle);
   },
+  // Multipart with extra fields/files (the page builds the FormData).
+  uploadForm: (path, formData) =>
+    fetch(`${BASE}${path}`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: formData,
+    }).then(handle),
 
   // --- auth helpers ---
   async login(username, password) {

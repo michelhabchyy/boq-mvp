@@ -9,6 +9,10 @@ export default function Home() {
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(null);
   const [aiAnalyze, setAiAnalyze] = useState(true);
+  const [rfpFile, setRfpFile] = useState(null);
+  const [sampleFile, setSampleFile] = useState(null);
+  const [description, setDescription] = useState("");
+  const [formKey, setFormKey] = useState(0);
 
   const load = useCallback(
     () =>
@@ -31,19 +35,25 @@ export default function Home() {
     }
   }, [rfps, load]);
 
-  async function onUpload(e) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  async function doUpload() {
+    if (!rfpFile) return;
     setBusy("upload");
     setError(null);
     try {
-      await api.upload(`/rfps/upload?analyze=${aiAnalyze}`, file);
+      const fd = new FormData();
+      fd.append("file", rfpFile);
+      if (description.trim()) fd.append("description", description.trim());
+      if (aiAnalyze && sampleFile) fd.append("sample", sampleFile);
+      await api.uploadForm(`/rfps/upload?analyze=${aiAnalyze}`, fd);
+      setRfpFile(null);
+      setSampleFile(null);
+      setDescription("");
+      setFormKey((k) => k + 1); // remount file inputs to clear them
       await load();
     } catch (err) {
       setError(String(err.message || err));
     } finally {
       setBusy(null);
-      e.target.value = "";
     }
   }
 
@@ -76,27 +86,77 @@ export default function Home() {
           <span className="tag">.xlsx · .docx · .pdf</span>
         </div>
         <div className="panel-body">
-          <div className="row">
+          <div className="field" style={{ marginTop: 0 }}>
+            <label>RFP file</label>
             <input
+              key={`rfp-${formKey}`}
               type="file"
               accept=".xlsx,.docx,.pdf"
-              onChange={onUpload}
+              onChange={(e) => setRfpFile(e.target.files?.[0] || null)}
               disabled={busy === "upload"}
             />
-            {busy === "upload" && <span className="muted">{aiAnalyze ? "Analyzing…" : "Uploading…"}</span>}
           </div>
-          <label className="row" style={{ marginTop: 10, gap: 6, cursor: "pointer" }}>
+
+          <label className="row" style={{ marginTop: 12, gap: 6, cursor: "pointer" }}>
             <input
               type="checkbox"
               checked={aiAnalyze}
               onChange={(e) => setAiAnalyze(e.target.checked)}
             />
             <span style={{ fontSize: 13 }}>
-              <strong>AI analysis</strong> — reads the whole document (Excel with
-              multiple sheets, Word, or PDF) and extracts sections + items.
-              Required for PDF; uncheck only for a clean single-sheet BoQ table.
+              <strong>AI analysis</strong> — reads the whole document (multi-sheet
+              Excel, Word, or PDF) and extracts sections + items. Required for PDF;
+              uncheck only for a clean single-sheet BoQ table.
             </span>
           </label>
+
+          {aiAnalyze && (
+            <>
+              <div className="field">
+                <label>Description / context for the AI (optional)</label>
+                <textarea
+                  className="input"
+                  rows={3}
+                  placeholder="e.g. This is an MEP tender for a hospital; group by discipline (HVAC, Electrical, Plumbing). Quantities are in the 'Qty' column; ignore the preliminaries section."
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                />
+                <div className="tag" style={{ marginTop: 4 }}>
+                  Tells the AI how to read this RFP — improves section/item accuracy.
+                </div>
+              </div>
+
+              <div className="field">
+                <label>Reference BoQ template / sample (optional)</label>
+                <input
+                  key={`sample-${formKey}`}
+                  type="file"
+                  accept=".xlsx,.docx,.pdf"
+                  onChange={(e) => setSampleFile(e.target.files?.[0] || null)}
+                />
+                <div className="tag" style={{ marginTop: 4 }}>
+                  If you have a sample BoQ, the AI mirrors its structure & columns.
+                </div>
+              </div>
+            </>
+          )}
+
+          <div className="row" style={{ marginTop: 14 }}>
+            <button
+              className="btn btn-primary"
+              onClick={doUpload}
+              disabled={!rfpFile || busy === "upload"}
+            >
+              {busy === "upload"
+                ? aiAnalyze
+                  ? "Uploading…"
+                  : "Processing…"
+                : aiAnalyze
+                ? "Upload & analyze"
+                : "Upload"}
+            </button>
+            {rfpFile && <span className="muted" style={{ fontSize: 13 }}>{rfpFile.name}</span>}
+          </div>
         </div>
       </section>
 

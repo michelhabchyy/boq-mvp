@@ -139,6 +139,8 @@ class RFPDocument(Base):
     # 'analyzing' (in progress), or 'failed' (see error).
     status: Mapped[str] = mapped_column(String(20), default="ready", nullable=False)
     error: Mapped[str | None] = mapped_column(Text)
+    # Optional user-provided context that guides the AI analysis.
+    notes: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

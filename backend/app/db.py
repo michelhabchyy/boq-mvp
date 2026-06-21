@@ -59,6 +59,7 @@ def init_db() -> None:
             text("ALTER TABLE rfp_documents ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'ready'")
         )
         conn.execute(text("ALTER TABLE rfp_documents ADD COLUMN IF NOT EXISTS error TEXT"))
+        conn.execute(text("ALTER TABLE rfp_documents ADD COLUMN IF NOT EXISTS notes TEXT"))
         # Multi-tenancy: company_id on every tenant-owned table.
         for table in ("users", "catalog_items", "rfp_documents", "rfp_lines", "boq_lines"):
             conn.execute(

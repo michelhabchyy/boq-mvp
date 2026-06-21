@@ -178,7 +178,7 @@ class StubMatcher:
             )
         return LLMBatch(results=results)
 
-    def analyze_rfp(self, document_text: str) -> AnalyzedRFP:
+    def analyze_rfp(self, document_text: str, guidance: str = "", sample_text: str = "") -> AnalyzedRFP:
         # Offline placeholder: keep non-trivial lines as one section. NOT real
         # analysis — use the anthropic provider for genuine structuring.
         items = []
@@ -253,14 +253,17 @@ class AnthropicMatcher:
                 return LLMBatch(results=first.results + second.results)
             return LLMBatch(results=[])
 
-    def analyze_rfp(self, document_text: str) -> AnalyzedRFP:
+    def analyze_rfp(self, document_text: str, guidance: str = "", sample_text: str = "") -> AnalyzedRFP:
         # Large RFPs would overflow a single response's token cap and truncate the
         # JSON. Split the document into chunks (preferring sheet/page boundaries),
-        # analyze each, and merge — so each call's output stays complete.
+        # analyze each, and merge — so each call's output stays complete. The
+        # user's guidance + an optional reference BoQ sample are prepended to every
+        # chunk so they steer the structure consistently.
         system = _load_prompt("rfp_analysis_system.txt")
+        preamble = _analysis_preamble(guidance, sample_text)
         sections: list[AnalyzedSection] = []
         for chunk in _chunk_text(document_text):
-            sections.extend(self._analyze_chunk(system, chunk))
+            sections.extend(self._analyze_chunk(system, preamble + chunk))
         return AnalyzedRFP(sections=_merge_sections(sections))
 
     def _analyze_chunk(self, system: str, chunk: str, depth: int = 0) -> list[AnalyzedSection]:
@@ -319,6 +322,23 @@ def _chunk_text(text: str, max_chars: int = 30000) -> list[str]:
     if cur:
         chunks.append("\n".join(cur))
     return chunks or [text]
+
+
+def _analysis_preamble(guidance: str = "", sample_text: str = "") -> str:
+    """User-provided context prepended to each analysis chunk. Empty if none."""
+    parts = []
+    if guidance and guidance.strip():
+        parts.append(
+            "USER GUIDANCE — important context for interpreting this RFP "
+            "(follow it):\n" + guidance.strip()
+        )
+    if sample_text and sample_text.strip():
+        # Cap the sample so it conveys structure without ballooning tokens.
+        parts.append(
+            "REFERENCE BoQ SAMPLE — mirror its structure, columns and section "
+            "style where it fits this RFP:\n" + sample_text.strip()[:4000]
+        )
+    return ("\n\n".join(parts) + "\n\n---\n\n") if parts else ""
 
 
 def _merge_sections(sections: list[AnalyzedSection]) -> list[AnalyzedSection]:
