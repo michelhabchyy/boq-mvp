@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "../lib/api";
 
@@ -10,15 +10,26 @@ export default function Home() {
   const [busy, setBusy] = useState(null);
   const [aiAnalyze, setAiAnalyze] = useState(true);
 
-  const load = () =>
-    api
-      .get("/rfps")
-      .then(setRfps)
-      .catch((e) => setError(String(e)));
+  const load = useCallback(
+    () =>
+      api
+        .get("/rfps")
+        .then(setRfps)
+        .catch((e) => setError(String(e.message || e))),
+    []
+  );
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
+
+  // While any RFP is still being analyzed in the background, poll for updates.
+  useEffect(() => {
+    if (rfps && rfps.some((r) => r.status === "analyzing")) {
+      const t = setTimeout(load, 4000);
+      return () => clearTimeout(t);
+    }
+  }, [rfps, load]);
 
   async function onUpload(e) {
     const file = e.target.files?.[0];
@@ -62,7 +73,7 @@ export default function Home() {
       <section className="panel">
         <div className="panel-head">
           <h2>Upload RFP</h2>
-          <span className="tag">.xlsx · .docx</span>
+          <span className="tag">.xlsx · .docx · .pdf</span>
         </div>
         <div className="panel-body">
           <div className="row">
@@ -104,35 +115,59 @@ export default function Home() {
               <tr>
                 <th>RFP</th>
                 <th>Type</th>
+                <th>Status</th>
                 <th className="num">Lines</th>
                 <th style={{ textAlign: "right" }}>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {rfps.map((r) => (
-                <tr key={r.id}>
-                  <td>
-                    <span className="muted nums">#{r.id}</span>{" "}
-                    <strong>{r.filename}</strong>
-                  </td>
-                  <td>
-                    <span className="badge badge-gray">{r.source_type}</span>
-                  </td>
-                  <td className="num">{r.line_count}</td>
-                  <td className="cell-actions">
-                    <button
-                      className="btn btn-sm"
-                      onClick={() => runMatching(r.id)}
-                      disabled={busy === `match-${r.id}`}
-                    >
-                      {busy === `match-${r.id}` ? "Matching…" : "Run matching"}
-                    </button>
-                    <Link className="btn btn-sm btn-primary" href={`/review/${r.id}`}>
-                      Review →
-                    </Link>
-                  </td>
-                </tr>
-              ))}
+              {rfps.map((r) => {
+                const ready = r.status === "ready";
+                return (
+                  <tr key={r.id}>
+                    <td>
+                      <span className="muted nums">#{r.id}</span>{" "}
+                      <strong>{r.filename}</strong>
+                    </td>
+                    <td>
+                      <span className="badge badge-gray">{r.source_type}</span>
+                    </td>
+                    <td>
+                      {r.status === "analyzing" && (
+                        <span className="badge badge-amber">analyzing…</span>
+                      )}
+                      {r.status === "ready" && (
+                        <span className="badge badge-green">ready</span>
+                      )}
+                      {r.status === "failed" && (
+                        <span className="badge badge-red" title={r.error || "analysis failed"}>
+                          failed
+                        </span>
+                      )}
+                    </td>
+                    <td className="num">{r.line_count}</td>
+                    <td className="cell-actions">
+                      <button
+                        className="btn btn-sm"
+                        onClick={() => runMatching(r.id)}
+                        disabled={!ready || busy === `match-${r.id}`}
+                        title={ready ? "" : "Wait for analysis to finish"}
+                      >
+                        {busy === `match-${r.id}` ? "Matching…" : "Run matching"}
+                      </button>
+                      {ready ? (
+                        <Link className="btn btn-sm btn-primary" href={`/review/${r.id}`}>
+                          Review →
+                        </Link>
+                      ) : (
+                        <button className="btn btn-sm btn-primary" disabled>
+                          Review →
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}

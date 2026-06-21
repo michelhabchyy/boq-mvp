@@ -167,6 +167,8 @@ class RFPDocumentOut(BaseModel):
     id: int
     filename: str
     source_type: str
+    status: str = "ready"
+    error: str | None = None
     created_at: datetime
     line_count: int
 
@@ -175,6 +177,7 @@ class RFPUploadResult(BaseModel):
     rfp_id: int
     filename: str
     source_type: str
+    status: str = "ready"
     line_count: int
     warnings: list[str]
     scope_lines: list[ScopeLineOut]

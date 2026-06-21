@@ -134,7 +134,11 @@ class RFPDocument(Base):
         ForeignKey("companies.id", ondelete="CASCADE"), index=True, nullable=False
     )
     filename: Mapped[str] = mapped_column(String(500), nullable=False)
-    source_type: Mapped[str] = mapped_column(String(10), nullable=False)  # xlsx | docx
+    source_type: Mapped[str] = mapped_column(String(10), nullable=False)  # xlsx|docx|pdf
+    # AI analysis runs in the background: 'ready' (done / deterministic upload),
+    # 'analyzing' (in progress), or 'failed' (see error).
+    status: Mapped[str] = mapped_column(String(20), default="ready", nullable=False)
+    error: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
