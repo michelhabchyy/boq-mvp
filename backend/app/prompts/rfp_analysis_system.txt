@@ -37,6 +37,10 @@ HOW TO DISTRIBUTE CONTENT INTO SECTIONS AND ITEMS — this is the core job:
 4. Merge text that wraps across multiple lines/cells into one coherent item. Do
    not split one item into several, and do not output bare numbers or headings as
    items.
+5. Keep each item description CONCISE and clear — a short task/deliverable name
+   (a few words to one line) that still carries the key technical specifics needed
+   to price it (size, rating, material). Summarize; do NOT copy long verbatim
+   sentences or paragraphs into the description.
 
 QUANTITIES & UNITS:
   • Extract the quantity and unit when the document gives them (strip thousands

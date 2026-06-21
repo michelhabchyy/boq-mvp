@@ -29,6 +29,7 @@ NCOLS = len(COLUMNS)
 MONEY_FMT = "#,##0.00"
 
 _HEADER_FILL = PatternFill("solid", fgColor="1A56DB")
+_SECTION_FILL = PatternFill("solid", fgColor="14202E")
 _GROUP_FILL = PatternFill("solid", fgColor="EEF2FF")
 _TOTAL_FILL = PatternFill("solid", fgColor="F3F4F6")
 _thin = Side(style="thin", color="D0D0D0")
@@ -74,58 +75,77 @@ def build_boq_workbook(filename: str, groups: list) -> bytes:
     row = header_row + 1
     grand_total = 0.0
 
-    for scope, lines in groups:
-        # Scope-line group header (merged, shaded), bilingual.
-        ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=NCOLS)
-        qty_unit = f"{scope.quantity or ''} {scope.unit or ''}".strip()
-        label = f"Scope #{scope.line_no} ({qty_unit}):  {scope.description}"
-        gcell = ws.cell(row=row, column=1, value=label)
-        gcell.font = Font(bold=True, size=10)
-        gcell.fill = _GROUP_FILL
-        gcell.alignment = Alignment(horizontal="left", wrap_text=True)
-        for c in range(1, NCOLS + 1):
-            ws.cell(row=row, column=c).border = _BORDER
-        row += 1
+    # Group scope lines by SECTION (from AI analysis): the section becomes the
+    # main "Scope N" heading, and the items/tasks are listed under it. Plain
+    # table uploads (no sections) render as a single flat list.
+    from collections import OrderedDict
 
-        subtotal = 0.0
-        for bl in lines:
-            brand_cell = " · ".join(
-                p for p in (bl.brand, getattr(bl, "subcontractor", None)) if p
-            )
-            values = [
-                bl.item_code or "—",
-                bl.description_en or "",
-                bl.description_ar or "",
-                bl.unit or "",
-                _f(bl.quantity),
-                _f(bl.unit_price),
-                _f(bl.line_total),
-                brand_cell,
-            ]
-            for c, v in enumerate(values, start=1):
-                cell = ws.cell(row=row, column=c, value=v)
-                cell.border = _BORDER
-                cell.alignment = Alignment(
-                    vertical="top",
-                    wrap_text=c in (2, 3),
-                    horizontal="right" if c in (3, 5, 6, 7) else "left",
-                )
-                if c in (6, 7):
-                    cell.number_format = MONEY_FMT
-            subtotal += _f(bl.line_total)
+    sections: "OrderedDict[int, dict]" = OrderedDict()
+    for scope, lines in groups:
+        sno = getattr(scope, "section_no", 0) or 0
+        if sno not in sections:
+            sections[sno] = {"title": getattr(scope, "section_title", None), "groups": []}
+        elif not sections[sno]["title"]:
+            sections[sno]["title"] = getattr(scope, "section_title", None)
+        sections[sno]["groups"].append((scope, lines))
+
+    has_sections = not (len(sections) == 1 and 0 in sections and not sections[0]["title"])
+
+    for display_i, sec in enumerate(sections.values(), start=1):
+        if has_sections:
+            ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=NCOLS)
+            label = f"Scope {display_i}" + (f" — {sec['title']}" if sec["title"] else "")
+            hcell = ws.cell(row=row, column=1, value=label)
+            hcell.font = Font(bold=True, color="FFFFFF", size=11)
+            hcell.fill = _SECTION_FILL
+            hcell.alignment = Alignment(horizontal="left")
+            for c in range(1, NCOLS + 1):
+                ws.cell(row=row, column=c).border = _BORDER
             row += 1
 
-        # Subtotal row for this scope line
+        section_total = 0.0
+        for scope, lines in sec["groups"]:
+            for bl in lines:
+                # Use the concise catalog description; for an unmatched line fall
+                # back to the (summarized) task text from the scope line.
+                desc_en = bl.description_en or (scope.description if not bl.item_code else "")
+                brand_cell = " · ".join(
+                    p for p in (bl.brand, getattr(bl, "subcontractor", None)) if p
+                )
+                values = [
+                    bl.item_code or "—",
+                    desc_en or "",
+                    bl.description_ar or "",
+                    bl.unit or "",
+                    _f(bl.quantity),
+                    _f(bl.unit_price),
+                    _f(bl.line_total),
+                    brand_cell,
+                ]
+                for c, v in enumerate(values, start=1):
+                    cell = ws.cell(row=row, column=c, value=v)
+                    cell.border = _BORDER
+                    cell.alignment = Alignment(
+                        vertical="top",
+                        wrap_text=c in (2, 3),
+                        horizontal="right" if c in (3, 5, 6, 7) else "left",
+                    )
+                    if c in (6, 7):
+                        cell.number_format = MONEY_FMT
+                section_total += _f(bl.line_total)
+                row += 1
+
+        # Section subtotal
         scell = ws.cell(row=row, column=6, value="Subtotal — مجموع جزئي")
         scell.font = Font(bold=True, italic=True, size=9)
         scell.alignment = Alignment(horizontal="right")
-        tcell = ws.cell(row=row, column=7, value=round(subtotal, 2))
+        tcell = ws.cell(row=row, column=7, value=round(section_total, 2))
         tcell.font = Font(bold=True)
         tcell.number_format = MONEY_FMT
         for c in range(1, NCOLS + 1):
             ws.cell(row=row, column=c).border = _BORDER
         row += 1
-        grand_total += subtotal
+        grand_total += section_total
 
     # Grand total
     row += 1

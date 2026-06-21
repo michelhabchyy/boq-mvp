@@ -113,16 +113,22 @@ export default function Home() {
           {aiAnalyze && (
             <>
               <div className="field">
-                <label>Description / context for the AI (optional)</label>
+                <label>Your prompt / instructions for the AI (optional)</label>
                 <textarea
                   className="input"
-                  rows={3}
-                  placeholder="e.g. This is an MEP tender for a hospital; group by discipline (HVAC, Electrical, Plumbing). Quantities are in the 'Qty' column; ignore the preliminaries section."
+                  rows={4}
+                  placeholder={
+                    "Describe the RFP and tell the agent how to analyze and distribute it. e.g.:\n" +
+                    "• MEP tender for a hospital — group items into scopes by discipline (HVAC, Electrical, Plumbing).\n" +
+                    "• Quantities are in the 'Qty' column; ignore the preliminaries/terms.\n" +
+                    "• Keep item names short; split civil vs finishing into separate scopes."
+                  }
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                 />
                 <div className="tag" style={{ marginTop: 4 }}>
-                  Tells the AI how to read this RFP — improves section/item accuracy.
+                  Combined with the built-in prompt to steer the section/item
+                  distribution and level of detail.
                 </div>
               </div>
 
