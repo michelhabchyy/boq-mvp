@@ -9,6 +9,7 @@ const POLL_MS = 8000;
 
 export default function UsagePage() {
   const { user, loading, canAdmin } = useAuth();
+  const isOwner = user?.role === "owner";
   const [me, setMe] = useState(null);
   const [co, setCo] = useState(null); // company breakdown (admin only)
   const [error, setError] = useState(null);
@@ -75,14 +76,6 @@ export default function UsagePage() {
       <p className="page-sub">
         Live tracker of AI tokens spent on RFP analysis and matching. The weekly
         company allowance resets every Monday. Updates automatically.
-        {me?.billing_multiplier > 1 && (
-          <>
-            {" "}
-            <strong>
-              Billed at {me.billing_multiplier}× actual AI consumption.
-            </strong>
-          </>
-        )}
       </p>
 
       {error && <div className="alert">{error}</div>}
@@ -121,7 +114,9 @@ export default function UsagePage() {
           <div className="panel-head">
             <h2>Per-user spend</h2>
             <span className="tag">
-              billed{co?.billing_multiplier > 1 ? ` (${co.billing_multiplier}×)` : ""} · actual
+              {isOwner && co?.billing_multiplier > 1
+                ? `billed (${co.billing_multiplier}×) · actual`
+                : "this week · all-time"}
             </span>
           </div>
           {!co && <div className="empty">Loading…</div>}
@@ -134,10 +129,10 @@ export default function UsagePage() {
                 <tr>
                   <th>User</th>
                   <th>Role</th>
-                  <th className="num">Billed this week</th>
+                  <th className="num">This week</th>
                   <th>Share of company week</th>
-                  <th className="num">Actual this week</th>
-                  <th className="num">Billed all time</th>
+                  {isOwner && <th className="num">Actual this week</th>}
+                  <th className="num">All time</th>
                 </tr>
               </thead>
               <tbody>
@@ -169,7 +164,9 @@ export default function UsagePage() {
                         </div>
                         <span className="muted" style={{ fontSize: 11 }}>{share}%</span>
                       </td>
-                      <td className="num nums muted">{fmt(u.actual_this_week)}</td>
+                      {isOwner && (
+                        <td className="num nums muted">{fmt(u.actual_this_week)}</td>
+                      )}
                       <td className="num nums">{fmt(u.tokens_all_time)}</td>
                     </tr>
                   );

@@ -4,6 +4,11 @@ Every company user can see their OWN live token spend (/usage/me). Company
 admins (and the owner acting on a company) can see a per-user breakdown for the
 whole company (/usage/users). Data comes from the TokenUsage ledger, written
 whenever an AI operation (RFP analysis / matching) records its token cost.
+
+Token figures shown to companies are the BILLED amount only. The billing markup
+(actual consumption vs billed, and the multiplier itself) is a platform secret —
+it is exposed ONLY to the platform owner, never to a company's own admins/users,
+even via direct API calls.
 """
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -34,6 +39,8 @@ def my_token_usage(
 ):
     mine = my_usage(db, cid, user.id)
     limit, used, remaining = _company_totals(db, cid)
+    # Only the platform owner is ever told the markup; companies see 1.0.
+    multiplier = settings.token_billing_multiplier if user.role == "owner" else 1.0
     return MyUsageOut(
         user_id=user.id,
         tokens_this_week=mine["tokens_this_week"],
@@ -41,7 +48,7 @@ def my_token_usage(
         company_weekly_limit=limit,
         company_weekly_used=used,
         company_weekly_remaining=remaining,
-        billing_multiplier=settings.token_billing_multiplier,
+        billing_multiplier=multiplier,
     )
 
 
@@ -54,11 +61,18 @@ def company_token_usage(
     # Per-user breakdown is an admin-level view (owner acting on a company counts).
     if user.role not in ("admin", "owner"):
         raise HTTPException(403, "Company admin only")
+    is_owner = user.role == "owner"
     limit, used, remaining = _company_totals(db, cid)
+    rows = user_breakdown(db, cid)
+    if not is_owner:
+        # Never leak the real (pre-markup) consumption to a company: mask the
+        # actual figure to match the billed one so no markup can be inferred.
+        for r in rows:
+            r["actual_this_week"] = r["tokens_this_week"]
     return CompanyUsageOut(
         company_weekly_limit=limit,
         company_weekly_used=used,
         company_weekly_remaining=remaining,
-        billing_multiplier=settings.token_billing_multiplier,
-        users=[UserUsageOut(**row) for row in user_breakdown(db, cid)],
+        billing_multiplier=settings.token_billing_multiplier if is_owner else 1.0,
+        users=[UserUsageOut(**row) for row in rows],
     )
