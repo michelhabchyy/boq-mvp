@@ -18,9 +18,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .config import settings
-from .embeddings import build_embedding_text, get_embedder
+from .embeddings import build_embedding_text, get_embedder  # noqa: F401 (re-export)
 from .llm import get_matcher
-from .models import BoqLine, CatalogItem, RFPLine
+from .models import BoqLine, CatalogItem, RFPLine, Subcontractor
 
 
 def retrieve_candidates(
@@ -62,88 +62,57 @@ def _price(material, labour, markup, quantity) -> tuple[float, float, float]:
     return round(unit_cost, 2), round(unit_price, 2), round(line_total, 2)
 
 
-def match_scope_line(db: Session, line: RFPLine) -> list[BoqLine]:
-    """Run retrieval + LLM + pricing for one scope line. Returns unsaved BoqLines."""
-    pairs = retrieve_candidates(db, line.description, settings.match_top_k, line.company_id)
-    by_code = {item.item_code: item for item, _ in pairs}
-
-    matcher = get_matcher()
-    assembly = matcher.propose_assembly(
-        scope={
-            "description": line.description,
-            "quantity": float(line.quantity) if line.quantity is not None else None,
-            "unit": line.unit,
-        },
-        candidates=_candidate_payload(pairs),
-    )
-
+def _build_boq_line(line: RFPLine, comp, item: CatalogItem | None, sub_name, threshold):
+    """Build one BoqLine from an LLM component + the resolved catalog item."""
     scope_qty = float(line.quantity) if line.quantity is not None else 1.0
-    threshold = settings.match_confidence_threshold
-    results: list[BoqLine] = []
-
-    for comp in assembly.components:
-        item = by_code.get(comp.catalog_item_code) if comp.catalog_item_code else None
-        quantity = comp.quantity_per_unit * scope_qty
-
-        if item is None:
-            # Unmatched (LLM chose null, or hallucinated a code not in candidates).
-            results.append(
-                BoqLine(
-                    company_id=line.company_id,
-                    rfp_id=line.rfp_id,
-                    rfp_line_id=line.id,
-                    catalog_item_id=None,
-                    item_code=None,
-                    description_en=None,
-                    description_ar=None,
-                    unit=line.unit,
-                    brand=None,
-                    quantity=round(quantity, 3),
-                    unit_cost=0,
-                    markup=0,
-                    unit_price=0,
-                    line_total=0,
-                    confidence=comp.confidence,
-                    needs_review=True,
-                    notes=comp.reason,
-                )
-            )
-            continue
-
-        unit_cost, unit_price, line_total = _price(
-            item.material_cost, item.labour_cost, item.markup, quantity
+    quantity = round(comp.quantity_per_unit * scope_qty, 3)
+    if item is None:
+        return BoqLine(
+            company_id=line.company_id,
+            rfp_id=line.rfp_id,
+            rfp_line_id=line.id,
+            catalog_item_id=None,
+            item_code=None,
+            unit=line.unit,
+            quantity=quantity,
+            unit_cost=0,
+            markup=0,
+            unit_price=0,
+            line_total=0,
+            confidence=comp.confidence,
+            needs_review=True,
+            notes=comp.reason,
         )
-        results.append(
-            BoqLine(
-                company_id=line.company_id,
-                rfp_id=line.rfp_id,
-                rfp_line_id=line.id,
-                catalog_item_id=item.id,
-                item_code=item.item_code,
-                description_en=item.description_en,
-                description_ar=item.description_ar,
-                unit=item.unit,
-                brand=item.brand,
-                subcontractor=item.subcontractor.name if item.subcontractor else None,
-                quantity=round(quantity, 3),
-                unit_cost=unit_cost,
-                markup=float(item.markup or 0),
-                unit_price=unit_price,
-                line_total=line_total,
-                confidence=comp.confidence,
-                needs_review=comp.confidence <= threshold,
-                notes=comp.reason,
-            )
-        )
-
-    return results
+    unit_cost, unit_price, line_total = _price(
+        item.material_cost, item.labour_cost, item.markup, quantity
+    )
+    return BoqLine(
+        company_id=line.company_id,
+        rfp_id=line.rfp_id,
+        rfp_line_id=line.id,
+        catalog_item_id=item.id,
+        item_code=item.item_code,
+        description_en=item.description_en,
+        description_ar=item.description_ar,
+        unit=item.unit,
+        brand=item.brand,
+        subcontractor=sub_name,
+        quantity=quantity,
+        unit_cost=unit_cost,
+        markup=float(item.markup or 0),
+        unit_price=unit_price,
+        line_total=line_total,
+        confidence=comp.confidence,
+        needs_review=comp.confidence <= threshold,
+        notes=comp.reason,
+    )
 
 
 def run_matching_for_rfp(
     db: Session, rfp_id: int, company_id: int, rfp_line_id: int | None = None
 ) -> list[BoqLine]:
-    """Match all lines of an RFP (or one line). Replaces prior BoqLines for those
-    scope lines so the run is idempotent. Returns the persisted BoqLines."""
+    """Match all lines of an RFP (or one). Lines are priced in BATCHES (one LLM
+    call per batch) to keep cost/calls low. Idempotent: replaces prior BoqLines."""
     stmt = (
         select(RFPLine)
         .where(RFPLine.rfp_id == rfp_id, RFPLine.company_id == company_id)
@@ -159,11 +128,69 @@ def run_matching_for_rfp(
             synchronize_session=False
         )
 
+    matcher = get_matcher()
+    threshold = settings.match_confidence_threshold
+    batch_size = max(1, settings.match_batch_size)
+    sub_names = dict(
+        db.execute(
+            select(Subcontractor.id, Subcontractor.name).where(
+                Subcontractor.company_id == company_id
+            )
+        ).all()
+    )
+
     all_results: list[BoqLine] = []
-    for line in lines:
-        boq_lines = match_scope_line(db, line)
-        db.add_all(boq_lines)
-        all_results.extend(boq_lines)
+    for start in range(0, len(lines), batch_size):
+        batch = lines[start : start + batch_size]
+        payload: list[dict] = []
+        code_to_item: dict[str, CatalogItem] = {}
+        for idx, line in enumerate(batch):
+            pairs = retrieve_candidates(
+                db, line.description, settings.match_top_k, company_id
+            )
+            for item, _ in pairs:
+                code_to_item[item.item_code] = item
+            payload.append(
+                {
+                    "index": idx,
+                    "scope": {
+                        "description": line.description,
+                        "quantity": float(line.quantity) if line.quantity is not None else None,
+                        "unit": line.unit,
+                    },
+                    "candidates": _candidate_payload(pairs),
+                }
+            )
+
+        result = matcher.propose_batch(payload)
+        by_index = {r.line_index: r for r in result.results}
+
+        for idx, line in enumerate(batch):
+            r = by_index.get(idx)
+            components = r.components if (r and r.components) else None
+            if not components:
+                # No result for this line — flag it unmatched for review.
+                bl = BoqLine(
+                    company_id=line.company_id,
+                    rfp_id=line.rfp_id,
+                    rfp_line_id=line.id,
+                    unit=line.unit,
+                    quantity=float(line.quantity) if line.quantity is not None else 1.0,
+                    confidence=0.0,
+                    needs_review=True,
+                    notes="No match returned by the engine.",
+                )
+                db.add(bl)
+                all_results.append(bl)
+                continue
+            for comp in components:
+                item = code_to_item.get(comp.catalog_item_code) if comp.catalog_item_code else None
+                sub_name = (
+                    sub_names.get(item.subcontractor_id) if item and item.subcontractor_id else None
+                )
+                bl = _build_boq_line(line, comp, item, sub_name, threshold)
+                db.add(bl)
+                all_results.append(bl)
 
     db.commit()
     for bl in all_results:

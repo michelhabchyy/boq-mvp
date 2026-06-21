@@ -68,6 +68,8 @@ class Settings(BaseSettings):
     match_confidence_threshold: float = 0.6
     # How many catalog candidates to retrieve per scope line and show the LLM.
     match_top_k: int = 8
+    # Scope lines priced per LLM call. Batching cuts cost/calls vs one-per-line.
+    match_batch_size: int = 20
 
     # --- Authentication ---
     # Secret used to sign JWTs. CHANGE THIS per deployment (any long random string).

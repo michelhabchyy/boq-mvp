@@ -44,6 +44,16 @@ class LLMAssembly(BaseModel):
     components: list[LLMComponent]
 
 
+class LLMLineResult(BaseModel):
+    line_index: int  # which scope line in the batch this is for
+    overall_confidence: float = Field(ge=0.0, le=1.0)
+    components: list[LLMComponent]
+
+
+class LLMBatch(BaseModel):
+    results: list[LLMLineResult]
+
+
 # RFP analysis contract (narrative document -> sections -> items)
 
 
@@ -91,6 +101,29 @@ def render_user_prompt(scope: dict, candidates: list[dict]) -> str:
     )
 
 
+def render_batch_user_prompt(lines: list[dict]) -> str:
+    """Build ONE prompt covering many scope lines, each with its own candidates.
+    `lines` = [{index, scope:{description,quantity,unit}, candidates:[...]}]."""
+    blocks = []
+    for ln in lines:
+        s = ln["scope"]
+        blocks.append(
+            f"=== LINE {ln['index']} ===\n"
+            f"Description: {s.get('description')}\n"
+            f"Quantity: {s.get('quantity')}  Unit: {s.get('unit')}\n"
+            f"Candidates (choose only from these codes):\n"
+            f"{_format_candidates(ln['candidates'])}"
+        )
+    header = (
+        "Price EVERY scope line below against this contractor's catalog. For each "
+        "line return its line_index and the catalog item(s) it needs (an assembly "
+        "may be several items), each with quantity_per_unit, confidence and reason. "
+        "Match across Arabic/English by meaning; choose only from that line's "
+        "candidate codes, or null if none fits.\n\n"
+    )
+    return header + "\n\n".join(blocks)
+
+
 # --- Providers ---------------------------------------------------------------
 
 
@@ -131,6 +164,19 @@ class StubMatcher:
                 )
             ],
         )
+
+    def propose_batch(self, lines: list[dict]) -> LLMBatch:
+        results = []
+        for ln in lines:
+            a = self.propose_assembly(ln["scope"], ln["candidates"])
+            results.append(
+                LLMLineResult(
+                    line_index=ln["index"],
+                    overall_confidence=a.overall_confidence,
+                    components=a.components,
+                )
+            )
+        return LLMBatch(results=results)
 
     def analyze_rfp(self, document_text: str) -> AnalyzedRFP:
         # Offline placeholder: keep non-trivial lines as one section. NOT real
@@ -184,6 +230,29 @@ class AnthropicMatcher:
             )
         return parsed
 
+    def propose_batch(self, lines: list[dict]) -> LLMBatch:
+        """Price many scope lines in ONE call (far fewer calls than per-line)."""
+        return self._batch_call(_load_prompt("matching_system.txt"), lines)
+
+    def _batch_call(self, system: str, lines: list[dict], depth: int = 0) -> LLMBatch:
+        try:
+            response = self._client.messages.parse(
+                model=self._model,
+                max_tokens=16000,
+                system=system,
+                messages=[{"role": "user", "content": render_batch_user_prompt(lines)}],
+                output_format=LLMBatch,
+            )
+            return response.parsed_output or LLMBatch(results=[])
+        except Exception:
+            # Output too long for one response: split the batch and retry.
+            if depth < 4 and len(lines) > 1:
+                mid = len(lines) // 2
+                first = self._batch_call(system, lines[:mid], depth + 1)
+                second = self._batch_call(system, lines[mid:], depth + 1)
+                return LLMBatch(results=first.results + second.results)
+            return LLMBatch(results=[])
+
     def analyze_rfp(self, document_text: str) -> AnalyzedRFP:
         # Large RFPs would overflow a single response's token cap and truncate the
         # JSON. Split the document into chunks (preferring sheet/page boundaries),
@@ -232,9 +301,10 @@ def get_matcher():
     return factory()
 
 
-def _chunk_text(text: str, max_chars: int = 12000) -> list[str]:
-    """Split flattened RFP text into chunks for analysis, breaking on line
-    boundaries and preferring Excel sheet / PDF page boundaries."""
+def _chunk_text(text: str, max_chars: int = 30000) -> list[str]:
+    """Split flattened RFP text into chunks for analysis ONLY when it's large —
+    a normal RFP fits in one chunk (one call). Breaks on line boundaries and
+    prefers Excel sheet / PDF page boundaries."""
     lines = text.split("\n")
     chunks: list[str] = []
     cur: list[str] = []
