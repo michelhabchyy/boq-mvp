@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from ..auth import hash_password, require_owner
 from ..db import get_db
-from ..models import BoqLine, CatalogItem, Company, RFPDocument, RFPLine, User
+from ..models import BoqLine, CatalogItem, Company, Plan, RFPDocument, RFPLine, User
 from ..schemas import (
     CompanyCreate,
     CompanyOut,
@@ -19,10 +19,24 @@ from ..schemas import (
     PlatformOverview,
     UserOut,
 )
+from ..usage import effective_used, weekly_limit
 
 router = APIRouter(
     prefix="/companies", tags=["companies"], dependencies=[Depends(require_owner)]
 )
+
+
+def _company_out(company: Company, user_count: int) -> CompanyOut:
+    return CompanyOut(
+        id=company.id,
+        name=company.name,
+        is_active=company.is_active,
+        user_count=user_count,
+        plan_id=company.plan_id,
+        plan_name=company.plan.name if company.plan else None,
+        weekly_token_limit=weekly_limit(company),
+        weekly_tokens_used=effective_used(company),
+    )
 
 
 def _with_counts(db: Session) -> list[CompanyOut]:
@@ -32,10 +46,7 @@ def _with_counts(db: Session) -> list[CompanyOut]:
         .group_by(Company.id)
         .order_by(Company.name)
     ).all()
-    return [
-        CompanyOut(id=c.id, name=c.name, is_active=c.is_active, user_count=n)
-        for c, n in rows
-    ]
+    return [_company_out(c, n) for c, n in rows]
 
 
 @router.get("", response_model=list[CompanyOut])
@@ -91,7 +102,14 @@ def create_company(payload: CompanyCreate, db: Session = Depends(get_db)):
     if clash:
         raise HTTPException(409, f"Username '{payload.admin_username}' already exists")
 
-    company = Company(name=payload.name, is_active=True)
+    plan_id = payload.plan_id
+    if plan_id is None:  # default new companies to the cheapest plan
+        cheapest = db.execute(
+            select(Plan).order_by(Plan.weekly_token_limit).limit(1)
+        ).scalar_one_or_none()
+        plan_id = cheapest.id if cheapest else None
+
+    company = Company(name=payload.name, is_active=True, plan_id=plan_id)
     db.add(company)
     db.flush()  # assign company.id
 
@@ -106,9 +124,7 @@ def create_company(payload: CompanyCreate, db: Session = Depends(get_db)):
     db.add(admin)
     db.commit()
     db.refresh(company)
-    return CompanyOut(
-        id=company.id, name=company.name, is_active=company.is_active, user_count=1
-    )
+    return _company_out(company, 1)
 
 
 @router.patch("/{company_id}", response_model=CompanyOut)
@@ -118,14 +134,17 @@ def update_company(
     company = db.get(Company, company_id)
     if company is None:
         raise HTTPException(404, f"Company {company_id} not found")
-    for key, value in payload.model_dump(exclude_unset=True).items():
+    fields = payload.model_dump(exclude_unset=True)
+    if fields.get("plan_id") is not None and db.get(Plan, fields["plan_id"]) is None:
+        raise HTTPException(404, f"Plan {fields['plan_id']} not found")
+    for key, value in fields.items():
         setattr(company, key, value)
     db.commit()
     db.refresh(company)
     n = db.execute(
         select(func.count(User.id)).where(User.company_id == company.id)
     ).scalar_one()
-    return CompanyOut(id=company.id, name=company.name, is_active=company.is_active, user_count=n)
+    return _company_out(company, n)
 
 
 @router.get("/{company_id}/users", response_model=list[UserOut])

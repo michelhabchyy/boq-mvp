@@ -16,8 +16,9 @@ from sqlalchemy.orm import Session
 from ..auth import current_company_id
 from ..db import SessionLocal, get_db
 from ..llm import get_matcher
-from ..models import RFPDocument, RFPLine
+from ..models import Company, RFPDocument, RFPLine
 from ..rfp_loader import extract_full_text, parse_rfp_file
+from ..usage import QuotaExceeded, over_limit, record_tokens
 from ..schemas import (
     RFPDetail,
     RFPDocumentOut,
@@ -161,6 +162,12 @@ def _run_ai_analysis(
     db = SessionLocal()
     try:
         try:
+            company = db.get(Company, company_id)
+            if company is not None and over_limit(db, company):
+                raise QuotaExceeded(
+                    "Weekly AI token limit reached for this company. It resets "
+                    "Monday — ask the platform owner to upgrade the plan."
+                )
             text = extract_full_text(fname, content)
             if not text.strip():
                 raise ValueError(
@@ -172,7 +179,8 @@ def _run_ai_analysis(
                     sample_text = extract_full_text(sample_fname, sample_content)
                 except Exception:
                     sample_text = ""  # bad sample is non-fatal
-            analyzed = get_matcher().analyze_rfp(
+            matcher = get_matcher()
+            analyzed = matcher.analyze_rfp(
                 text, guidance=guidance, sample_text=sample_text
             )
             line_no = 0
@@ -200,6 +208,8 @@ def _run_ai_analysis(
                 doc.status = "ready"
                 doc.error = None
             db.commit()
+            if company is not None:
+                record_tokens(db, company, getattr(matcher, "tokens_used", 0))
         except Exception as e:
             db.rollback()
             doc = db.get(RFPDocument, rfp_id)

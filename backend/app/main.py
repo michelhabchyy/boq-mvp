@@ -22,6 +22,7 @@ from .routers import (
     matching,
     my_items,
     output,
+    plans,
     rfp,
     subcontractors,
     users,
@@ -61,6 +62,7 @@ app.add_middleware(
 # also enforces tenant scoping. No route is left unauthenticated.
 app.include_router(auth.router)
 app.include_router(companies.router)  # owner-only
+app.include_router(plans.router)  # owner-only
 app.include_router(users.router)  # company-admin-only
 app.include_router(subcontractors.router)  # company-admin-only
 app.include_router(my_items.router)  # subcontractor-only

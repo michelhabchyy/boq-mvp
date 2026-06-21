@@ -41,7 +41,9 @@ export default function AppChrome({ children }) {
         setLoading(false);
         // Owner with no company selected belongs in the platform area.
         const ownerArea =
-          pathname?.startsWith("/dashboard") || pathname?.startsWith("/companies");
+          pathname?.startsWith("/dashboard") ||
+          pathname?.startsWith("/companies") ||
+          pathname?.startsWith("/plans");
         if (u.role === "owner" && !getActingCompany() && !ownerArea) {
           router.replace("/dashboard");
         } else if (u.role === "subcontractor" && !pathname?.startsWith("/my-items")) {
@@ -106,6 +108,7 @@ function TopBar({ user, pathname, acting }) {
   const nav = [
     { href: "/dashboard", label: "Dashboard", show: isOwner && !ownerActing },
     { href: "/companies", label: "Companies", show: isOwner && !ownerActing },
+    { href: "/plans", label: "Plans", show: isOwner && !ownerActing },
     { href: "/", label: "RFPs", show: role === "reviewer" || adminMenu },
     { href: "/catalog", label: "Catalog", show: adminMenu },
     { href: "/subcontractors", label: "Subcontractors", show: adminMenu },

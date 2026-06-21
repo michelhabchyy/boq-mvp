@@ -17,10 +17,11 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from . import usage
 from .config import settings
 from .embeddings import build_embedding_text, get_embedder  # noqa: F401 (re-export)
 from .llm import get_matcher
-from .models import BoqLine, CatalogItem, RFPLine, Subcontractor
+from .models import BoqLine, CatalogItem, Company, RFPLine, Subcontractor
 
 
 def retrieve_candidates(
@@ -122,6 +123,14 @@ def run_matching_for_rfp(
         stmt = stmt.where(RFPLine.id == rfp_line_id)
     lines = db.execute(stmt).scalars().all()
 
+    # Enforce the company's weekly token quota before doing any LLM work.
+    company = db.get(Company, company_id)
+    if company is not None and usage.over_limit(db, company):
+        raise usage.QuotaExceeded(
+            "Weekly AI token limit reached for this company. It resets Monday — "
+            "ask the platform owner to upgrade the plan for more."
+        )
+
     line_ids = [ln.id for ln in lines]
     if line_ids:
         db.query(BoqLine).filter(BoqLine.rfp_line_id.in_(line_ids)).delete(
@@ -193,6 +202,9 @@ def run_matching_for_rfp(
                 all_results.append(bl)
 
     db.commit()
+    # Record what the matching actually consumed against the weekly quota.
+    if company is not None:
+        usage.record_tokens(db, company, getattr(matcher, "tokens_used", 0))
     for bl in all_results:
         db.refresh(bl)
     return all_results

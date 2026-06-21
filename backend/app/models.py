@@ -5,11 +5,12 @@ tenant-owned row carries a `company_id`, and all queries filter by it. The
 platform 'owner' (company_id NULL) provisions companies and their admins.
 """
 
-from datetime import datetime
+from datetime import date, datetime
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     Boolean,
+    Date,
     DateTime,
     Float,
     ForeignKey,
@@ -26,6 +27,20 @@ from .config import settings
 from .db import Base
 
 
+class Plan(Base):
+    """A subscription tier with a weekly LLM-token allowance. The owner edits
+    limits and assigns plans to companies to control AI cost."""
+
+    __tablename__ = "plans"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(80), unique=True, nullable=False)
+    weekly_token_limit: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
 class Company(Base):
     """A tenant. All of a company's catalog / RFPs / BoQs are scoped to it."""
 
@@ -34,6 +49,13 @@ class Company(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    # Subscription + weekly LLM-token usage (resets each ISO week).
+    plan_id: Mapped[int | None] = mapped_column(
+        ForeignKey("plans.id", ondelete="SET NULL"), nullable=True
+    )
+    plan: Mapped["Plan | None"] = relationship()
+    weekly_tokens_used: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    week_start: Mapped[date | None] = mapped_column(Date)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

@@ -8,6 +8,7 @@ from ..auth import current_company_id
 from ..config import settings
 from ..db import get_db
 from ..matching import run_matching_for_rfp
+from ..usage import QuotaExceeded
 from ..models import BoqLine, RFPDocument, RFPLine
 from ..schemas import (
     BoqLineOut,
@@ -55,7 +56,10 @@ def run_matching(
     cid: int = Depends(current_company_id),
 ):
     _owned_rfp(db, rfp_id, cid)
-    created = run_matching_for_rfp(db, rfp_id, cid, rfp_line_id)
+    try:
+        created = run_matching_for_rfp(db, rfp_id, cid, rfp_line_id)
+    except QuotaExceeded as e:
+        raise HTTPException(status_code=402, detail=str(e))
 
     lines = (
         db.execute(

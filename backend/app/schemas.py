@@ -50,6 +50,19 @@ class SubUserCreate(BaseModel):
     full_name: str | None = None
 
 
+class PlanOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    weekly_token_limit: int
+
+
+class PlanUpdate(BaseModel):
+    name: str | None = None
+    weekly_token_limit: int | None = None
+
+
 class CompanyOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -57,6 +70,10 @@ class CompanyOut(BaseModel):
     name: str
     is_active: bool
     user_count: int = 0
+    plan_id: int | None = None
+    plan_name: str | None = None
+    weekly_token_limit: int = 0
+    weekly_tokens_used: int = 0
 
 
 class CompanyUsage(BaseModel):
@@ -87,11 +104,13 @@ class CompanyCreate(BaseModel):
     admin_username: str
     admin_password: str
     admin_full_name: str | None = None
+    plan_id: int | None = None  # defaults to the cheapest plan if omitted
 
 
 class CompanyUpdate(BaseModel):
     name: str | None = None
     is_active: bool | None = None
+    plan_id: int | None = None
 
 
 class TokenResponse(BaseModel):

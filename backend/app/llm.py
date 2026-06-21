@@ -135,7 +135,11 @@ class StubMatcher:
     NOT reason about assemblies; switch to the anthropic provider for that.
     """
 
+    def __init__(self):
+        self.tokens_used = 0  # rough estimate, for quota testing in dev
+
     def propose_assembly(self, scope: dict, candidates: list[dict]) -> LLMAssembly:
+        self.tokens_used += (len(str(candidates)) + len(str(scope))) // 4 + 50
         if not candidates:
             return LLMAssembly(
                 scope_understanding=scope.get("description", ""),
@@ -181,6 +185,7 @@ class StubMatcher:
     def analyze_rfp(self, document_text: str, guidance: str = "", sample_text: str = "") -> AnalyzedRFP:
         # Offline placeholder: keep non-trivial lines as one section. NOT real
         # analysis — use the anthropic provider for genuine structuring.
+        self.tokens_used += len(document_text) // 4
         items = []
         for raw in document_text.splitlines():
             t = raw.strip()
@@ -201,6 +206,18 @@ class AnthropicMatcher:
             )
         self._client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
         self._model = settings.llm_model
+        self.tokens_used = 0  # accumulated across all calls on this instance
+
+    def _add_usage(self, response) -> None:
+        u = getattr(response, "usage", None)
+        if not u:
+            return
+        self.tokens_used += (
+            (getattr(u, "input_tokens", 0) or 0)
+            + (getattr(u, "output_tokens", 0) or 0)
+            + (getattr(u, "cache_creation_input_tokens", 0) or 0)
+            + (getattr(u, "cache_read_input_tokens", 0) or 0)
+        )
 
     def propose_assembly(self, scope: dict, candidates: list[dict]) -> LLMAssembly:
         response = self._client.messages.parse(
@@ -212,6 +229,7 @@ class AnthropicMatcher:
             ],
             output_format=LLMAssembly,  # structured outputs → schema-valid JSON
         )
+        self._add_usage(response)
         parsed = response.parsed_output
         if parsed is None:
             # Refusal or truncation — surface as a flagged, unmatched line.
@@ -243,6 +261,7 @@ class AnthropicMatcher:
                 messages=[{"role": "user", "content": render_batch_user_prompt(lines)}],
                 output_format=LLMBatch,
             )
+            self._add_usage(response)
             return response.parsed_output or LLMBatch(results=[])
         except Exception:
             # Output too long for one response: split the batch and retry.
@@ -275,6 +294,7 @@ class AnthropicMatcher:
                 messages=[{"role": "user", "content": chunk}],
                 output_format=AnalyzedRFP,
             )
+            self._add_usage(response)
             return response.parsed_output.sections if response.parsed_output else []
         except Exception:
             # Output still too long (or a transient error): split and retry.

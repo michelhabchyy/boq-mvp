@@ -60,6 +60,12 @@ def init_db() -> None:
         )
         conn.execute(text("ALTER TABLE rfp_documents ADD COLUMN IF NOT EXISTS error TEXT"))
         conn.execute(text("ALTER TABLE rfp_documents ADD COLUMN IF NOT EXISTS notes TEXT"))
+        # Subscription plans + weekly token usage on companies.
+        conn.execute(text("ALTER TABLE companies ADD COLUMN IF NOT EXISTS plan_id INTEGER"))
+        conn.execute(
+            text("ALTER TABLE companies ADD COLUMN IF NOT EXISTS weekly_tokens_used INTEGER DEFAULT 0")
+        )
+        conn.execute(text("ALTER TABLE companies ADD COLUMN IF NOT EXISTS week_start DATE"))
         # Multi-tenancy: company_id on every tenant-owned table.
         for table in ("users", "catalog_items", "rfp_documents", "rfp_lines", "boq_lines"):
             conn.execute(
@@ -92,6 +98,11 @@ def init_db() -> None:
     from .auth import seed_owner
 
     seed_owner()
+
+    # Seed default subscription plans (idempotent).
+    from .usage import seed_plans
+
+    seed_plans()
 
 
 def get_db():
