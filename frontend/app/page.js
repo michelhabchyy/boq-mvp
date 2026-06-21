@@ -140,9 +140,14 @@ export default function Home() {
                         <span className="badge badge-green">ready</span>
                       )}
                       {r.status === "failed" && (
-                        <span className="badge badge-red" title={r.error || "analysis failed"}>
-                          failed
-                        </span>
+                        <div>
+                          <span className="badge badge-red">failed</span>
+                          {r.error && (
+                            <div style={{ fontSize: 11, color: "var(--danger)", marginTop: 3, maxWidth: 320 }}>
+                              {r.error}
+                            </div>
+                          )}
+                        </div>
                       )}
                     </td>
                     <td className="num">{r.line_count}</td>
