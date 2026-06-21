@@ -1,9 +1,15 @@
-SCOPE LINE
+SCOPE LINE (price this)
   Description: {description}
   Quantity: {quantity}
   Unit: {unit}
 
-CATALOG CANDIDATES (choose only from these `code` values)
+CANDIDATE CATALOG ITEMS — this contractor's own catalog (choose only from these
+`code` values; each shows English and Arabic descriptions, unit and brand):
 {candidates}
 
-Decompose the scope line into the catalog item(s) it requires, following the rules.
+Task:
+- Translate the scope line if needed and match it to the candidate item(s) by
+  MEANING across Arabic/English.
+- Decompose it into every catalog item it requires (assembly), each with its
+  per-unit quantity, a confidence score, and a short reason.
+- If nothing fits, return one component with a null code and a low confidence.

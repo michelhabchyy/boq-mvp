@@ -232,6 +232,15 @@ def extract_full_text(filename: str, content: bytes) -> str:
                 cells = [cell.text.strip() for cell in row.cells]
                 if any(cells):
                     parts.append(" | ".join(cells))
+    elif name.endswith(".pdf"):
+        from pypdf import PdfReader
+
+        reader = PdfReader(io.BytesIO(content))
+        for i, page in enumerate(reader.pages, start=1):
+            text = (page.extract_text() or "").strip()
+            if text:
+                parts.append(f"[Page {i}]")
+                parts.append(text)
     else:
-        raise ValueError("Unsupported file type. Upload a .xlsx or .docx file.")
+        raise ValueError("Unsupported file type. Upload .xlsx, .docx, or .pdf.")
     return "\n".join(parts)

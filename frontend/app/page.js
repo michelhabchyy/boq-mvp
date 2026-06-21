@@ -68,7 +68,7 @@ export default function Home() {
           <div className="row">
             <input
               type="file"
-              accept=".xlsx,.docx"
+              accept=".xlsx,.docx,.pdf"
               onChange={onUpload}
               disabled={busy === "upload"}
             />
@@ -81,8 +81,9 @@ export default function Home() {
               onChange={(e) => setAiAnalyze(e.target.checked)}
             />
             <span style={{ fontSize: 13 }}>
-              <strong>AI analysis</strong> — read the whole document and extract
-              sections + items (for narrative RFPs). Uncheck for a clean BoQ table.
+              <strong>AI analysis</strong> — reads the whole document (Excel with
+              multiple sheets, Word, or PDF) and extracts sections + items.
+              Required for PDF; uncheck only for a clean single-sheet BoQ table.
             </span>
           </label>
         </div>

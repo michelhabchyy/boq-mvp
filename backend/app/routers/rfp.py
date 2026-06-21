@@ -35,6 +35,8 @@ def _source_type(filename: str) -> str:
         return "xlsx"
     if name.endswith(".docx"):
         return "docx"
+    if name.endswith(".pdf"):
+        return "pdf"
     return "file"
 
 
