@@ -70,6 +70,10 @@ class Settings(BaseSettings):
     match_top_k: int = 8
     # Scope lines priced per LLM call. Batching cuts cost/calls vs one-per-line.
     match_batch_size: int = 20
+    # Billing markup on AI tokens: companies/users are charged this multiple of
+    # the tokens actually consumed from the platform's API key (e.g. 1.25 = +25%).
+    # Plan weekly limits are expressed in these BILLED tokens.
+    token_billing_multiplier: float = 1.25
 
     # --- Authentication ---
     # Secret used to sign JWTs. CHANGE THIS per deployment (any long random string).

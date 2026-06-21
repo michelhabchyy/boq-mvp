@@ -12,6 +12,7 @@ from datetime import date, timedelta
 from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
+from .config import settings
 from .db import SessionLocal
 from .models import Company, Plan, TokenUsage, User
 
@@ -75,6 +76,12 @@ def over_limit(db: Session, company: Company) -> bool:
     return (company.weekly_tokens_used or 0) >= weekly_limit(company)
 
 
+def billed_tokens(actual: int) -> int:
+    """Tokens to CHARGE = actual consumed × the billing multiplier (markup)."""
+    mult = settings.token_billing_multiplier or 1.0
+    return int(round(max(0, int(actual)) * mult))
+
+
 def record_tokens(
     db: Session,
     company: Company,
@@ -82,14 +89,24 @@ def record_tokens(
     user_id: int | None = None,
     kind: str = "",
 ) -> None:
-    """Add tokens to the company's weekly counter AND log a per-user ledger row."""
-    tokens = max(0, int(tokens))
+    """Charge the company/user for an AI operation.
+
+    `tokens` is the ACTUAL count consumed from the platform API key. We apply the
+    billing markup, add the billed amount to the company's weekly quota, and log
+    a ledger row keeping both the billed and actual figures (for reconciliation).
+    """
+    actual = max(0, int(tokens))
+    billed = billed_tokens(actual)
     roll_week(company)
-    company.weekly_tokens_used = (company.weekly_tokens_used or 0) + tokens
-    if tokens > 0:
+    company.weekly_tokens_used = (company.weekly_tokens_used or 0) + billed
+    if actual > 0:
         db.add(
             TokenUsage(
-                company_id=company.id, user_id=user_id, kind=kind, tokens=tokens
+                company_id=company.id,
+                user_id=user_id,
+                kind=kind,
+                tokens=billed,
+                actual_tokens=actual,
             )
         )
     db.commit()
@@ -109,6 +126,12 @@ def user_breakdown(db: Session, company_id: int) -> list[dict]:
         0,
     ).label("week_tokens")
     all_sum = func.coalesce(func.sum(TokenUsage.tokens), 0).label("all_tokens")
+    week_actual = func.coalesce(
+        func.sum(
+            case((TokenUsage.created_at >= week_start, TokenUsage.actual_tokens), else_=0)
+        ),
+        0,
+    ).label("week_actual")
 
     rows = db.execute(
         select(
@@ -118,6 +141,7 @@ def user_breakdown(db: Session, company_id: int) -> list[dict]:
             User.role,
             week_sum,
             all_sum,
+            week_actual,
         )
         .select_from(User)
         .outerjoin(
@@ -136,8 +160,9 @@ def user_breakdown(db: Session, company_id: int) -> list[dict]:
             "role": role,
             "tokens_this_week": int(wk),
             "tokens_all_time": int(al),
+            "actual_this_week": int(wa),
         }
-        for uid, uname, fname, role, wk, al in rows
+        for uid, uname, fname, role, wk, al, wa in rows
     ]
 
 

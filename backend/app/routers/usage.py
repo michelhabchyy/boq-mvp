@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from ..auth import current_company_id, get_current_user
+from ..config import settings
 from ..db import get_db
 from ..models import Company, User
 from ..schemas import CompanyUsageOut, MyUsageOut, UserUsageOut
@@ -40,6 +41,7 @@ def my_token_usage(
         company_weekly_limit=limit,
         company_weekly_used=used,
         company_weekly_remaining=remaining,
+        billing_multiplier=settings.token_billing_multiplier,
     )
 
 
@@ -57,5 +59,6 @@ def company_token_usage(
         company_weekly_limit=limit,
         company_weekly_used=used,
         company_weekly_remaining=remaining,
+        billing_multiplier=settings.token_billing_multiplier,
         users=[UserUsageOut(**row) for row in user_breakdown(db, cid)],
     )

@@ -114,7 +114,10 @@ class CompanyUpdate(BaseModel):
 
 
 class MyUsageOut(BaseModel):
-    """The current user's own token spend + their company's weekly allowance."""
+    """The current user's own token spend + their company's weekly allowance.
+
+    All token figures are BILLED tokens (actual consumption × billing_multiplier).
+    """
 
     user_id: int
     tokens_this_week: int = 0
@@ -122,6 +125,7 @@ class MyUsageOut(BaseModel):
     company_weekly_limit: int = 0
     company_weekly_used: int = 0
     company_weekly_remaining: int = 0
+    billing_multiplier: float = 1.0
 
 
 class UserUsageOut(BaseModel):
@@ -129,8 +133,9 @@ class UserUsageOut(BaseModel):
     username: str
     full_name: str | None = None
     role: str
-    tokens_this_week: int = 0
-    tokens_all_time: int = 0
+    tokens_this_week: int = 0  # billed
+    tokens_all_time: int = 0  # billed
+    actual_this_week: int = 0  # raw tokens consumed from the API key
 
 
 class CompanyUsageOut(BaseModel):
@@ -139,6 +144,7 @@ class CompanyUsageOut(BaseModel):
     company_weekly_limit: int = 0
     company_weekly_used: int = 0
     company_weekly_remaining: int = 0
+    billing_multiplier: float = 1.0
     users: list[UserUsageOut] = []
 
 

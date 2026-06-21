@@ -66,6 +66,10 @@ def init_db() -> None:
             text("ALTER TABLE companies ADD COLUMN IF NOT EXISTS weekly_tokens_used INTEGER DEFAULT 0")
         )
         conn.execute(text("ALTER TABLE companies ADD COLUMN IF NOT EXISTS week_start DATE"))
+        # Token-usage ledger: actual_tokens column (added after the table shipped).
+        conn.execute(
+            text("ALTER TABLE token_usage ADD COLUMN IF NOT EXISTS actual_tokens INTEGER DEFAULT 0")
+        )
         # Multi-tenancy: company_id on every tenant-owned table.
         for table in ("users", "catalog_items", "rfp_documents", "rfp_lines", "boq_lines"):
             conn.execute(
