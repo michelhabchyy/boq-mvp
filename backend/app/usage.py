@@ -9,11 +9,11 @@ from __future__ import annotations
 
 from datetime import date, timedelta
 
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
 from .db import SessionLocal
-from .models import Company, Plan
+from .models import Company, Plan, TokenUsage, User
 
 DEFAULT_PLANS = [
     ("Starter", 1_000_000),
@@ -75,10 +75,81 @@ def over_limit(db: Session, company: Company) -> bool:
     return (company.weekly_tokens_used or 0) >= weekly_limit(company)
 
 
-def record_tokens(db: Session, company: Company, tokens: int) -> None:
+def record_tokens(
+    db: Session,
+    company: Company,
+    tokens: int,
+    user_id: int | None = None,
+    kind: str = "",
+) -> None:
+    """Add tokens to the company's weekly counter AND log a per-user ledger row."""
+    tokens = max(0, int(tokens))
     roll_week(company)
-    company.weekly_tokens_used = (company.weekly_tokens_used or 0) + max(0, int(tokens))
+    company.weekly_tokens_used = (company.weekly_tokens_used or 0) + tokens
+    if tokens > 0:
+        db.add(
+            TokenUsage(
+                company_id=company.id, user_id=user_id, kind=kind, tokens=tokens
+            )
+        )
     db.commit()
+
+
+def user_breakdown(db: Session, company_id: int) -> list[dict]:
+    """Per-user token spend for a company: this week + all-time, from the ledger.
+
+    Joins the ledger to users so even users with zero spend show up; users that
+    were deleted (or the impersonating owner) appear under their stored name.
+    """
+    week_start = _monday(date.today())
+    week_sum = func.coalesce(
+        func.sum(
+            case((TokenUsage.created_at >= week_start, TokenUsage.tokens), else_=0)
+        ),
+        0,
+    ).label("week_tokens")
+    all_sum = func.coalesce(func.sum(TokenUsage.tokens), 0).label("all_tokens")
+
+    rows = db.execute(
+        select(
+            User.id,
+            User.username,
+            User.full_name,
+            User.role,
+            week_sum,
+            all_sum,
+        )
+        .select_from(User)
+        .outerjoin(
+            TokenUsage,
+            (TokenUsage.user_id == User.id) & (TokenUsage.company_id == company_id),
+        )
+        .where(User.company_id == company_id)
+        .group_by(User.id, User.username, User.full_name, User.role)
+        .order_by(week_sum.desc(), User.username)
+    ).all()
+    return [
+        {
+            "user_id": uid,
+            "username": uname,
+            "full_name": fname,
+            "role": role,
+            "tokens_this_week": int(wk),
+            "tokens_all_time": int(al),
+        }
+        for uid, uname, fname, role, wk, al in rows
+    ]
+
+
+def my_usage(db: Session, company_id: int, user_id: int) -> dict:
+    """A single user's own spend this week + all-time within a company."""
+    week_start = _monday(date.today())
+    base = select(func.coalesce(func.sum(TokenUsage.tokens), 0)).where(
+        TokenUsage.company_id == company_id, TokenUsage.user_id == user_id
+    )
+    week = db.execute(base.where(TokenUsage.created_at >= week_start)).scalar_one()
+    total = db.execute(base).scalar_one()
+    return {"tokens_this_week": int(week), "tokens_all_time": int(total)}
 
 
 class QuotaExceeded(Exception):

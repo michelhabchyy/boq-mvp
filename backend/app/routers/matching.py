@@ -4,12 +4,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..auth import current_company_id
+from ..auth import current_company_id, get_current_user
 from ..config import settings
 from ..db import get_db
 from ..matching import run_matching_for_rfp
 from ..usage import QuotaExceeded
-from ..models import BoqLine, RFPDocument, RFPLine
+from ..models import BoqLine, RFPDocument, RFPLine, User
 from ..schemas import (
     BoqLineOut,
     MatchRunResult,
@@ -54,10 +54,11 @@ def run_matching(
     ),
     db: Session = Depends(get_db),
     cid: int = Depends(current_company_id),
+    user: User = Depends(get_current_user),
 ):
     _owned_rfp(db, rfp_id, cid)
     try:
-        created = run_matching_for_rfp(db, rfp_id, cid, rfp_line_id)
+        created = run_matching_for_rfp(db, rfp_id, cid, rfp_line_id, user_id=user.id)
     except QuotaExceeded as e:
         raise HTTPException(status_code=402, detail=str(e))
 

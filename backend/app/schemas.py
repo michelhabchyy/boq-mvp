@@ -113,6 +113,35 @@ class CompanyUpdate(BaseModel):
     plan_id: int | None = None
 
 
+class MyUsageOut(BaseModel):
+    """The current user's own token spend + their company's weekly allowance."""
+
+    user_id: int
+    tokens_this_week: int = 0
+    tokens_all_time: int = 0
+    company_weekly_limit: int = 0
+    company_weekly_used: int = 0
+    company_weekly_remaining: int = 0
+
+
+class UserUsageOut(BaseModel):
+    user_id: int
+    username: str
+    full_name: str | None = None
+    role: str
+    tokens_this_week: int = 0
+    tokens_all_time: int = 0
+
+
+class CompanyUsageOut(BaseModel):
+    """Per-user breakdown + company totals for the usage tracker."""
+
+    company_weekly_limit: int = 0
+    company_weekly_used: int = 0
+    company_weekly_remaining: int = 0
+    users: list[UserUsageOut] = []
+
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"

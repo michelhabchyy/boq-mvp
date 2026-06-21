@@ -112,6 +112,30 @@ class User(Base):
     )
 
 
+class TokenUsage(Base):
+    """One row per AI operation, attributing tokens to the user who triggered it.
+
+    The company-level weekly counter (Company.weekly_tokens_used) enforces the
+    quota; this ledger powers the per-user 'who spent what' tracker and history.
+    """
+
+    __tablename__ = "token_usage"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    company_id: Mapped[int] = mapped_column(
+        ForeignKey("companies.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    # Null only if the triggering user was later deleted.
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), index=True, nullable=True
+    )
+    kind: Mapped[str] = mapped_column(String(20), default="", nullable=False)  # analysis | matching
+    tokens: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True, nullable=False
+    )
+
+
 class CatalogItem(Base):
     __tablename__ = "catalog_items"
     # item_code is unique PER company (two companies may share a code).

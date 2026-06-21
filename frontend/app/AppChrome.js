@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -96,6 +96,60 @@ export default function AppChrome({ children }) {
   );
 }
 
+const fmtTok = (n) => {
+  n = Number(n) || 0;
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(n >= 10_000_000 ? 0 : 1) + "M";
+  if (n >= 1_000) return Math.round(n / 1_000) + "K";
+  return String(n);
+};
+
+// Live chip in the top bar: the current user's own token spend this week, with
+// the company's remaining weekly allowance. Polls so it stays "live".
+function UsageChip({ routeKey }) {
+  const [u, setU] = useState(null);
+  const aliveRef = useRef(true);
+
+  useEffect(() => {
+    aliveRef.current = true;
+    const fetchIt = () =>
+      api
+        .get("/usage/me")
+        .then((d) => aliveRef.current && setU(d))
+        .catch(() => {});
+    fetchIt();
+    const id = setInterval(fetchIt, 12000);
+    const onFocus = () => fetchIt();
+    window.addEventListener("focus", onFocus);
+    return () => {
+      aliveRef.current = false;
+      clearInterval(id);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [routeKey]);
+
+  if (!u) return null;
+  const limit = u.company_weekly_limit || 0;
+  const used = u.company_weekly_used || 0;
+  const pct = limit ? Math.round((used / limit) * 100) : 0;
+  const level = limit && used >= limit ? "over" : pct >= 80 ? "warn" : "";
+
+  return (
+    <Link
+      href="/usage"
+      className={`usagechip ${level}`}
+      title={
+        `You spent ${(u.tokens_this_week || 0).toLocaleString()} tokens this week ` +
+        `(${(u.tokens_all_time || 0).toLocaleString()} all-time). ` +
+        `Company: ${used.toLocaleString()} / ${limit.toLocaleString()} this week (${pct}%).`
+      }
+    >
+      <span className="dot" />
+      <span>{fmtTok(u.tokens_this_week)}</span>
+      <span className="muted">you · {pct}% co</span>
+    </Link>
+  );
+}
+
 function TopBar({ user, pathname, acting }) {
   const role = user?.role;
   const isOwner = role === "owner";
@@ -113,8 +167,13 @@ function TopBar({ user, pathname, acting }) {
     { href: "/catalog", label: "Catalog", show: adminMenu },
     { href: "/subcontractors", label: "Subcontractors", show: adminMenu },
     { href: "/users", label: "Users", show: adminMenu },
+    { href: "/usage", label: "Usage", show: role === "reviewer" || adminMenu },
     { href: "/my-items", label: "My Items", show: isSub },
   ].filter((n) => n.show);
+
+  // A company context exists (own company, or owner impersonating one) iff the
+  // usage endpoints will resolve — only then show the live token chip.
+  const inCompany = role === "admin" || role === "reviewer" || ownerActing;
 
   const active = (href) =>
     href === "/" ? pathname === "/" : pathname?.startsWith(href);
@@ -143,6 +202,7 @@ function TopBar({ user, pathname, acting }) {
       </nav>
       {user && (
         <div className="userchip">
+          {inCompany && <UsageChip routeKey={`${pathname}|${acting?.id ?? ""}`} />}
           <span className={`role ${isAdmin || isOwner ? "admin" : ""}`}>{user.role}</span>
           <span>{user.full_name || user.username}</span>
           <button className="btn btn-sm btn-ghost" style={{ color: "#cdd6e0" }} onClick={() => api.logout()}>

@@ -13,10 +13,10 @@ from fastapi import (
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from ..auth import current_company_id
+from ..auth import current_company_id, get_current_user
 from ..db import SessionLocal, get_db
 from ..llm import get_matcher
-from ..models import Company, RFPDocument, RFPLine
+from ..models import Company, RFPDocument, RFPLine, User
 from ..rfp_loader import extract_full_text, parse_rfp_file
 from ..usage import QuotaExceeded, over_limit, record_tokens
 from ..schemas import (
@@ -65,6 +65,7 @@ async def upload_rfp(
     sample: UploadFile | None = File(None),
     db: Session = Depends(get_db),
     cid: int = Depends(current_company_id),
+    user: User = Depends(get_current_user),
 ):
     content = await file.read()
     fname = file.filename or ""
@@ -88,7 +89,15 @@ async def upload_rfp(
         db.commit()
         db.refresh(doc)
         background.add_task(
-            _run_ai_analysis, doc.id, cid, fname, content, guidance, sample_fname, sample_content
+            _run_ai_analysis,
+            doc.id,
+            cid,
+            fname,
+            content,
+            guidance,
+            sample_fname,
+            sample_content,
+            user.id,
         )
         return RFPUploadResult(
             rfp_id=doc.id,
@@ -155,6 +164,7 @@ def _run_ai_analysis(
     guidance: str = "",
     sample_fname: str = "",
     sample_content: bytes | None = None,
+    user_id: int | None = None,
 ) -> None:
     """Background worker: extract text, run the LLM (with the user's guidance +
     optional reference BoQ sample), persist sections/items, and set status.
@@ -209,7 +219,13 @@ def _run_ai_analysis(
                 doc.error = None
             db.commit()
             if company is not None:
-                record_tokens(db, company, getattr(matcher, "tokens_used", 0))
+                record_tokens(
+                    db,
+                    company,
+                    getattr(matcher, "tokens_used", 0),
+                    user_id=user_id,
+                    kind="analysis",
+                )
         except Exception as e:
             db.rollback()
             doc = db.get(RFPDocument, rfp_id)

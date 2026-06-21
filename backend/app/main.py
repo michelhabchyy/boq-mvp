@@ -25,6 +25,7 @@ from .routers import (
     plans,
     rfp,
     subcontractors,
+    usage,
     users,
 )
 
@@ -71,6 +72,7 @@ app.include_router(rfp.router)
 app.include_router(matching.router)
 app.include_router(boq.router)
 app.include_router(output.router)
+app.include_router(usage.router)
 
 
 @app.get("/health")

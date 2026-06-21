@@ -110,7 +110,11 @@ def _build_boq_line(line: RFPLine, comp, item: CatalogItem | None, sub_name, thr
 
 
 def run_matching_for_rfp(
-    db: Session, rfp_id: int, company_id: int, rfp_line_id: int | None = None
+    db: Session,
+    rfp_id: int,
+    company_id: int,
+    rfp_line_id: int | None = None,
+    user_id: int | None = None,
 ) -> list[BoqLine]:
     """Match all lines of an RFP (or one). Lines are priced in BATCHES (one LLM
     call per batch) to keep cost/calls low. Idempotent: replaces prior BoqLines."""
@@ -202,9 +206,16 @@ def run_matching_for_rfp(
                 all_results.append(bl)
 
     db.commit()
-    # Record what the matching actually consumed against the weekly quota.
+    # Record what the matching actually consumed against the weekly quota,
+    # attributed to the user who ran it.
     if company is not None:
-        usage.record_tokens(db, company, getattr(matcher, "tokens_used", 0))
+        usage.record_tokens(
+            db,
+            company,
+            getattr(matcher, "tokens_used", 0),
+            user_id=user_id,
+            kind="matching",
+        )
     for bl in all_results:
         db.refresh(bl)
     return all_results
