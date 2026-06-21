@@ -185,14 +185,35 @@ class AnthropicMatcher:
         return parsed
 
     def analyze_rfp(self, document_text: str) -> AnalyzedRFP:
-        response = self._client.messages.parse(
-            model=self._model,
-            max_tokens=8192,
-            system=_load_prompt("rfp_analysis_system.txt"),
-            messages=[{"role": "user", "content": document_text}],
-            output_format=AnalyzedRFP,
-        )
-        return response.parsed_output or AnalyzedRFP(sections=[])
+        # Large RFPs would overflow a single response's token cap and truncate the
+        # JSON. Split the document into chunks (preferring sheet/page boundaries),
+        # analyze each, and merge — so each call's output stays complete.
+        system = _load_prompt("rfp_analysis_system.txt")
+        sections: list[AnalyzedSection] = []
+        for chunk in _chunk_text(document_text):
+            sections.extend(self._analyze_chunk(system, chunk))
+        return AnalyzedRFP(sections=_merge_sections(sections))
+
+    def _analyze_chunk(self, system: str, chunk: str, depth: int = 0) -> list[AnalyzedSection]:
+        try:
+            response = self._client.messages.parse(
+                model=self._model,
+                max_tokens=16000,
+                system=system,
+                messages=[{"role": "user", "content": chunk}],
+                output_format=AnalyzedRFP,
+            )
+            return response.parsed_output.sections if response.parsed_output else []
+        except Exception:
+            # Output still too long (or a transient error): split and retry.
+            if depth < 3 and len(chunk) > 2000:
+                mid = chunk.rfind("\n", 0, len(chunk) // 2)
+                if mid <= 0:
+                    mid = len(chunk) // 2
+                return self._analyze_chunk(system, chunk[:mid], depth + 1) + self._analyze_chunk(
+                    system, chunk[mid:], depth + 1
+                )
+            return []
 
 
 _PROVIDERS = {
@@ -209,3 +230,36 @@ def get_matcher():
             f"Unknown LLM_PROVIDER='{provider}'. Options: {', '.join(_PROVIDERS)}."
         )
     return factory()
+
+
+def _chunk_text(text: str, max_chars: int = 12000) -> list[str]:
+    """Split flattened RFP text into chunks for analysis, breaking on line
+    boundaries and preferring Excel sheet / PDF page boundaries."""
+    lines = text.split("\n")
+    chunks: list[str] = []
+    cur: list[str] = []
+    cur_len = 0
+    for line in lines:
+        boundary = line.startswith("# Sheet:") or line.startswith("[Page ")
+        if cur and (cur_len + len(line) + 1 > max_chars or (boundary and cur_len > max_chars * 0.5)):
+            chunks.append("\n".join(cur))
+            cur, cur_len = [], 0
+        cur.append(line)
+        cur_len += len(line) + 1
+    if cur:
+        chunks.append("\n".join(cur))
+    return chunks or [text]
+
+
+def _merge_sections(sections: list[AnalyzedSection]) -> list[AnalyzedSection]:
+    """Combine sections that share a title (e.g. one split across chunks)."""
+    merged: dict[str, AnalyzedSection] = {}
+    order: list[str] = []
+    for s in sections:
+        key = (s.title or "").strip().lower()
+        if key not in merged:
+            merged[key] = AnalyzedSection(title=s.title, items=list(s.items))
+            order.append(key)
+        else:
+            merged[key].items.extend(s.items)
+    return [merged[k] for k in order]
