@@ -129,7 +129,7 @@ class MyUsageOut(BaseModel):
 
 
 class UserUsageOut(BaseModel):
-    user_id: int
+    user_id: int | None = None
     username: str
     full_name: str | None = None
     role: str

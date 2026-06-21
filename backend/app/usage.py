@@ -115,8 +115,10 @@ def record_tokens(
 def user_breakdown(db: Session, company_id: int) -> list[dict]:
     """Per-user token spend for a company: this week + all-time, from the ledger.
 
-    Joins the ledger to users so even users with zero spend show up; users that
-    were deleted (or the impersonating owner) appear under their stored name.
+    Every company user is listed (even with zero spend). Usage attributed to a
+    user who is NOT in the company list — the platform owner while impersonating,
+    or a since-deleted user (user_id NULL) — is still shown so the per-user rows
+    always reconcile with the company total. Nothing recorded is ever dropped.
     """
     week_start = _monday(date.today())
     week_sum = func.coalesce(
@@ -124,46 +126,72 @@ def user_breakdown(db: Session, company_id: int) -> list[dict]:
             case((TokenUsage.created_at >= week_start, TokenUsage.tokens), else_=0)
         ),
         0,
-    ).label("week_tokens")
-    all_sum = func.coalesce(func.sum(TokenUsage.tokens), 0).label("all_tokens")
+    )
+    all_sum = func.coalesce(func.sum(TokenUsage.tokens), 0)
     week_actual = func.coalesce(
         func.sum(
             case((TokenUsage.created_at >= week_start, TokenUsage.actual_tokens), else_=0)
         ),
         0,
-    ).label("week_actual")
+    )
 
-    rows = db.execute(
-        select(
-            User.id,
-            User.username,
-            User.full_name,
-            User.role,
-            week_sum,
-            all_sum,
-            week_actual,
+    # 1) Aggregate the ledger by the user who triggered each operation.
+    agg = {
+        uid: (int(wk), int(al), int(wa))
+        for uid, wk, al, wa in db.execute(
+            select(TokenUsage.user_id, week_sum, all_sum, week_actual)
+            .where(TokenUsage.company_id == company_id)
+            .group_by(TokenUsage.user_id)
+        ).all()
+    }
+
+    # 2) All company users (so people with zero spend still appear).
+    company_users = db.execute(
+        select(User.id, User.username, User.full_name, User.role).where(
+            User.company_id == company_id
         )
-        .select_from(User)
-        .outerjoin(
-            TokenUsage,
-            (TokenUsage.user_id == User.id) & (TokenUsage.company_id == company_id),
-        )
-        .where(User.company_id == company_id)
-        .group_by(User.id, User.username, User.full_name, User.role)
-        .order_by(week_sum.desc(), User.username)
     ).all()
-    return [
-        {
+    known_ids = {u.id for u in company_users}
+
+    # 3) Names for any ledger user_ids that aren't company members (e.g. owner).
+    extra_ids = [uid for uid in agg if uid is not None and uid not in known_ids]
+    extra_names = {
+        u.id: u
+        for u in (
+            db.execute(
+                select(User.id, User.username, User.full_name, User.role).where(
+                    User.id.in_(extra_ids)
+                )
+            ).all()
+            if extra_ids
+            else []
+        )
+    }
+
+    def _row(uid, uname, fname, role):
+        wk, al, wa = agg.get(uid, (0, 0, 0))
+        return {
             "user_id": uid,
             "username": uname,
             "full_name": fname,
             "role": role,
-            "tokens_this_week": int(wk),
-            "tokens_all_time": int(al),
-            "actual_this_week": int(wa),
+            "tokens_this_week": wk,
+            "tokens_all_time": al,
+            "actual_this_week": wa,
         }
-        for uid, uname, fname, role, wk, al, wa in rows
-    ]
+
+    rows = [_row(u.id, u.username, u.full_name, u.role) for u in company_users]
+    for uid in extra_ids:
+        u = extra_names.get(uid)
+        if u is not None:
+            rows.append(_row(uid, u.username, u.full_name, u.role))
+        else:  # user existed but was deleted after spending
+            rows.append(_row(uid, "(deleted user)", None, "—"))
+    if None in agg:  # ledger rows whose user was hard-removed (user_id NULL)
+        rows.append(_row(None, "(former user)", None, "—"))
+
+    rows.sort(key=lambda r: (-r["tokens_this_week"], (r["username"] or "")))
+    return rows
 
 
 def my_usage(db: Session, company_id: int, user_id: int) -> dict:

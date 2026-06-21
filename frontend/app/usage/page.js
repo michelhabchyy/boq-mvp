@@ -144,7 +144,7 @@ export default function UsagePage() {
                 {co.users.map((u) => {
                   const share = used ? Math.round((u.tokens_this_week / used) * 100) : 0;
                   return (
-                    <tr key={u.user_id}>
+                    <tr key={u.user_id ?? "former"}>
                       <td>
                         <strong>{u.full_name || u.username}</strong>{" "}
                         {(u.full_name && (
