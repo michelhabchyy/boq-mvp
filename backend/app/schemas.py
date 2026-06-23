@@ -193,9 +193,7 @@ class CatalogItemOut(BaseModel):
     description_ar: str | None
     description_en: str | None
     unit: str | None
-    material_cost: float
-    labour_cost: float
-    markup: float
+    unit_cost: float
     brand: str | None
     industry: str | None = None
     category: str | None = None
@@ -330,9 +328,7 @@ class CatalogItemIn(BaseModel):
     description_ar: str | None = None
     description_en: str | None = None
     unit: str | None = None
-    material_cost: float = 0
-    labour_cost: float = 0
-    markup: float = 0
+    unit_cost: float = 0
     brand: str | None = None
     industry: str | None = None
     category: str | None = None
@@ -347,9 +343,7 @@ class CatalogItemPatch(BaseModel):
     description_ar: str | None = None
     description_en: str | None = None
     unit: str | None = None
-    material_cost: float | None = None
-    labour_cost: float | None = None
-    markup: float | None = None
+    unit_cost: float | None = None
     brand: str | None = None
     industry: str | None = None
     category: str | None = None

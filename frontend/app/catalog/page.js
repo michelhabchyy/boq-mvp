@@ -9,9 +9,7 @@ const BLANK = {
   description_en: "",
   description_ar: "",
   unit: "",
-  material_cost: 0,
-  labour_cost: 0,
-  markup: 0,
+  unit_cost: 0,
   brand: "",
   industry: "",
   category: "",
@@ -193,9 +191,7 @@ export default function CatalogPage() {
                 <th>Description (EN / AR)</th>
                 <th>Industry / Category</th>
                 <th>Unit</th>
-                <th className="num">Material</th>
-                <th className="num">Labour</th>
-                <th className="num">Markup %</th>
+                <th className="num">Unit cost</th>
                 <th>Brand / Supplier</th>
                 <th>Sub</th>
                 <th style={{ textAlign: "right" }}>Actions</th>
@@ -205,7 +201,7 @@ export default function CatalogPage() {
               {items.map((it) =>
                 editing === it.id ? (
                   <tr key={it.id}>
-                    <td colSpan={10} style={{ padding: 0 }}>
+                    <td colSpan={8} style={{ padding: 0 }}>
                       <ItemForm
                         title={`Edit ${it.item_code}`}
                         initial={it}
@@ -262,9 +258,7 @@ export default function CatalogPage() {
                       )}
                     </td>
                     <td>{it.unit}</td>
-                    <td className="num">{money(it.material_cost)}</td>
-                    <td className="num">{money(it.labour_cost)}</td>
-                    <td className="num">{it.markup}</td>
+                    <td className="num">{money(it.unit_cost)}</td>
                     <td>
                       {it.brand}
                       {it.supplier && (
@@ -315,9 +309,7 @@ function ItemForm({ title, initial, submitLabel, onSubmit, onCancel, embedded, i
       description_en: f.description_en || null,
       description_ar: f.description_ar || null,
       unit: f.unit || null,
-      material_cost: num(f.material_cost),
-      labour_cost: num(f.labour_cost),
-      markup: num(f.markup),
+      unit_cost: num(f.unit_cost),
       brand: f.brand || null,
       industry: f.industry || null,
       category: f.category || null,
@@ -376,24 +368,18 @@ function ItemForm({ title, initial, submitLabel, onSubmit, onCancel, embedded, i
         <Field label="Supplier / vendor">
           <input className="input" value={f.supplier || ""} onChange={set("supplier")} />
         </Field>
-        <Field label="Markup %">
-          <input className="input" type="number" step="0.001" value={f.markup} onChange={set("markup")} />
+        <Field label="Unit cost">
+          <input className="input" type="number" step="0.01" value={f.unit_cost} onChange={set("unit_cost")} />
         </Field>
       </div>
 
-      <div className="form-section-label">Descriptions & pricing</div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
+      <div className="form-section-label">Descriptions</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
         <Field label="Description (EN)">
           <input className="input" value={f.description_en || ""} onChange={set("description_en")} />
         </Field>
         <Field label="Description (AR)">
           <input className="input" dir="auto" value={f.description_ar || ""} onChange={set("description_ar")} />
-        </Field>
-        <Field label="Material cost">
-          <input className="input" type="number" step="0.01" value={f.material_cost} onChange={set("material_cost")} />
-        </Field>
-        <Field label="Labour cost">
-          <input className="input" type="number" step="0.01" value={f.labour_cost} onChange={set("labour_cost")} />
         </Field>
       </div>
 

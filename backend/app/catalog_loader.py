@@ -20,9 +20,10 @@ HEADER_ALIASES: dict[str, set[str]] = {
     "description_ar": {"description_ar", "arabic_description", "arabic", "ar", "desc_ar"},
     "description_en": {"description_en", "english_description", "english", "en", "desc_en", "description"},
     "unit": {"unit", "uom", "units"},
-    "material_cost": {"material_cost", "material", "mat_cost"},
-    "labour_cost": {"labour_cost", "labor_cost", "labour", "labor"},
-    "markup": {"markup", "markup_pct", "markup_percent", "margin"},
+    "unit_cost": {
+        "unit_cost", "cost", "unit_price", "price", "rate", "unit_rate",
+        "cost_per_unit", "unitcost",
+    },
     "brand": {"brand", "manufacturer", "make", "maker"},
     # Advanced optional columns.
     "industry": {"industry", "trade", "discipline", "sector"},
@@ -33,8 +34,8 @@ HEADER_ALIASES: dict[str, set[str]] = {
     "notes": {"notes", "note", "remarks", "comment", "comments", "specs", "specification"},
 }
 
-REQUIRED_COLUMNS = {"item_code", "unit", "material_cost", "labour_cost", "markup"}
-NUMERIC_COLUMNS = {"material_cost", "labour_cost", "markup"}
+REQUIRED_COLUMNS = {"item_code", "unit", "unit_cost"}
+NUMERIC_COLUMNS = {"unit_cost"}
 
 
 @dataclass

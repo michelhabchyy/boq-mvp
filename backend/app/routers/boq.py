@@ -13,7 +13,7 @@ router = APIRouter(prefix="/boq-lines", tags=["boq"])
 
 
 def _snapshot_from_catalog(bl: BoqLine, item: CatalogItem) -> None:
-    """Copy catalog fields onto a BoQ line and reprice from cost + markup."""
+    """Copy catalog fields onto a BoQ line and reprice from the unit cost."""
     bl.catalog_item_id = item.id
     bl.item_code = item.item_code
     bl.description_en = item.description_en
@@ -21,11 +21,9 @@ def _snapshot_from_catalog(bl: BoqLine, item: CatalogItem) -> None:
     bl.unit = item.unit
     bl.brand = item.brand
     bl.subcontractor = item.subcontractor.name if item.subcontractor else None
-    unit_cost, unit_price, _ = _price(
-        item.material_cost, item.labour_cost, item.markup, bl.quantity
-    )
+    unit_cost, unit_price, _ = _price(item.unit_cost, bl.quantity)
     bl.unit_cost = unit_cost
-    bl.markup = float(item.markup or 0)
+    bl.markup = 0
     bl.unit_price = unit_price
 
 

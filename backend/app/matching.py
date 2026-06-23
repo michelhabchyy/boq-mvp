@@ -55,12 +55,11 @@ def _candidate_payload(pairs: list[tuple[CatalogItem, float]]) -> list[dict]:
     ]
 
 
-def _price(material, labour, markup, quantity) -> tuple[float, float, float]:
-    """Return (unit_cost, unit_price, line_total). markup is a percentage."""
-    unit_cost = float(material or 0) + float(labour or 0)
-    unit_price = unit_cost * (1.0 + float(markup or 0) / 100.0)
-    line_total = unit_price * float(quantity or 0)
-    return round(unit_cost, 2), round(unit_price, 2), round(line_total, 2)
+def _price(unit_cost, quantity) -> tuple[float, float, float]:
+    """Return (unit_cost, unit_price, line_total). No markup: price == cost."""
+    uc = float(unit_cost or 0)
+    line_total = uc * float(quantity or 0)
+    return round(uc, 2), round(uc, 2), round(line_total, 2)
 
 
 def _build_boq_line(line: RFPLine, comp, item: CatalogItem | None, sub_name, threshold):
@@ -84,9 +83,7 @@ def _build_boq_line(line: RFPLine, comp, item: CatalogItem | None, sub_name, thr
             needs_review=True,
             notes=comp.reason,
         )
-    unit_cost, unit_price, line_total = _price(
-        item.material_cost, item.labour_cost, item.markup, quantity
-    )
+    unit_cost, unit_price, line_total = _price(item.unit_cost, quantity)
     return BoqLine(
         company_id=line.company_id,
         rfp_id=line.rfp_id,
@@ -100,7 +97,7 @@ def _build_boq_line(line: RFPLine, comp, item: CatalogItem | None, sub_name, thr
         subcontractor=sub_name,
         quantity=quantity,
         unit_cost=unit_cost,
-        markup=float(item.markup or 0),
+        markup=0,
         unit_price=unit_price,
         line_total=line_total,
         confidence=comp.confidence,

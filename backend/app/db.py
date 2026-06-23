@@ -40,6 +40,30 @@ def init_db() -> None:
                 f"ADD COLUMN IF NOT EXISTS embedding vector({int(settings.embed_dim)})"
             )
         )
+        # Single unit_cost replacing material_cost + labour_cost (+ markup dropped).
+        # Backfill legacy rows ONCE: new ORM rows insert their own value (never
+        # NULL), so only pre-existing rows get summed from the old columns.
+        conn.execute(text("ALTER TABLE catalog_items ADD COLUMN IF NOT EXISTS unit_cost NUMERIC(14,2)"))
+        # Backfill only on upgraded DBs that still have the old cost columns.
+        has_legacy = conn.execute(
+            text(
+                "SELECT 1 FROM information_schema.columns "
+                "WHERE table_name = 'catalog_items' AND column_name = 'material_cost'"
+            )
+        ).first()
+        if has_legacy:
+            conn.execute(
+                text(
+                    "UPDATE catalog_items SET unit_cost = "
+                    "COALESCE(material_cost,0) + COALESCE(labour_cost,0) "
+                    "WHERE unit_cost IS NULL"
+                )
+            )
+        # Old cost columns are replaced by unit_cost — drop them so bulk inserts
+        # (which no longer supply them) don't trip their NOT NULL constraint.
+        conn.execute(text("ALTER TABLE catalog_items DROP COLUMN IF EXISTS material_cost"))
+        conn.execute(text("ALTER TABLE catalog_items DROP COLUMN IF EXISTS labour_cost"))
+        conn.execute(text("ALTER TABLE catalog_items DROP COLUMN IF EXISTS markup"))
         # Advanced catalog fields: industry/category/supplier/model/link/notes.
         conn.execute(text("ALTER TABLE catalog_items ADD COLUMN IF NOT EXISTS industry VARCHAR(120)"))
         conn.execute(text("ALTER TABLE catalog_items ADD COLUMN IF NOT EXISTS category VARCHAR(120)"))

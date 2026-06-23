@@ -163,9 +163,9 @@ class CatalogItem(Base):
     description_en: Mapped[str | None] = mapped_column(Text)
     unit: Mapped[str | None] = mapped_column(String(50))
 
-    material_cost: Mapped[float] = mapped_column(Numeric(14, 2), default=0, nullable=False)
-    labour_cost: Mapped[float] = mapped_column(Numeric(14, 2), default=0, nullable=False)
-    markup: Mapped[float] = mapped_column(Numeric(7, 3), default=0, nullable=False)
+    # Single all-in cost per unit (material + labour combined). No markup is
+    # applied — the BoQ price equals this cost.
+    unit_cost: Mapped[float] = mapped_column(Numeric(14, 2), default=0, nullable=False)
     brand: Mapped[str | None] = mapped_column(String(200))
 
     # --- Advanced classification & references ---

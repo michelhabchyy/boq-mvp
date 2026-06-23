@@ -16,8 +16,19 @@ router = APIRouter(prefix="/my-items", tags=["my-items"])
 
 
 def _embed(item: CatalogItem) -> None:
-    text = build_embedding_text(item.description_en, item.description_ar)
+    text = build_embedding_text(
+        item.description_en,
+        item.description_ar,
+        item.industry,
+        item.category,
+        item.brand,
+        item.model_number,
+    )
     item.embedding = get_embedder().embed_documents([text])[0] if text else None
+
+
+# Editing any of these changes the embedding text, so we re-embed on change.
+_EMBED_FIELDS = {"description_en", "description_ar", "industry", "category", "brand", "model_number"}
 
 
 def _mine(db: Session, item_id: int, me: User) -> CatalogItem:
@@ -92,7 +103,7 @@ def update_my_item(
             raise HTTPException(409, f"Item code '{fields['item_code']}' already exists")
     for k, v in fields.items():
         setattr(item, k, v)
-    if "description_en" in fields or "description_ar" in fields:
+    if _EMBED_FIELDS & fields.keys():
         _embed(item)
     db.commit()
     db.refresh(item)
