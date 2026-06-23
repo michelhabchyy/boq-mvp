@@ -205,5 +205,86 @@ def my_usage(db: Session, company_id: int, user_id: int) -> dict:
     return {"tokens_this_week": int(week), "tokens_all_time": int(total)}
 
 
+def _resolve_names(db: Session, company_id: int, ledger_ids: set) -> dict:
+    """Map user_id -> (username, full_name, role) for every company member plus
+    any non-member who appears in the ledger (the impersonating owner / deleted
+    users). user_id None maps to a '(former user)' label."""
+    names: dict = {}
+    members = db.execute(
+        select(User.id, User.username, User.full_name, User.role).where(
+            User.company_id == company_id
+        )
+    ).all()
+    member_ids = set()
+    for u in members:
+        names[u.id] = (u.username, u.full_name, u.role)
+        member_ids.add(u.id)
+    extra = [i for i in ledger_ids if i is not None and i not in member_ids]
+    if extra:
+        for u in db.execute(
+            select(User.id, User.username, User.full_name, User.role).where(
+                User.id.in_(extra)
+            )
+        ).all():
+            names[u.id] = (u.username, u.full_name, u.role)
+    # Anyone in the ledger we still couldn't name was hard-deleted.
+    for i in ledger_ids:
+        if i not in names:
+            names[i] = ("(former user)" if i is None else "(deleted user)", None, "—")
+    return names, member_ids
+
+
+def weekly_history(db: Session, company_id: int, weeks: int = 8) -> dict:
+    """Per-user BILLED token spend bucketed by ISO week (Monday-start) for the
+    last `weeks` weeks, so a company can track who spends the most over time.
+
+    Returns oldest→newest week dates and one row per user with a weekly array
+    and a period total, sorted heaviest-spender first."""
+    weeks = max(1, min(int(weeks), 52))
+    this_monday = _monday(date.today())
+    start = this_monday - timedelta(days=7 * (weeks - 1))
+    week_list = [start + timedelta(days=7 * i) for i in range(weeks)]
+    wk_index = {w: i for i, w in enumerate(week_list)}
+
+    # Low volume (one row per AI op) → bucket in Python for exact Monday-week
+    # alignment with the rest of the quota logic, regardless of DB timezone.
+    ledger = db.execute(
+        select(TokenUsage.user_id, TokenUsage.created_at, TokenUsage.tokens).where(
+            TokenUsage.company_id == company_id, TokenUsage.created_at >= start
+        )
+    ).all()
+
+    per_user: dict = {}
+    ledger_ids: set = set()
+    for uid, created, tokens in ledger:
+        ledger_ids.add(uid)
+        idx = wk_index.get(_monday(created.date()))
+        if idx is None:
+            continue
+        per_user.setdefault(uid, [0] * weeks)[idx] += int(tokens or 0)
+
+    names, member_ids = _resolve_names(db, company_id, ledger_ids)
+
+    # Every current member is shown (even with zero spend in the window), plus
+    # any non-member who actually spent.
+    uids = list(member_ids | {i for i in ledger_ids})
+    out_users = []
+    for uid in uids:
+        weekly = per_user.get(uid, [0] * weeks)
+        uname, fname, role = names.get(uid, ("(unknown)", None, "—"))
+        out_users.append(
+            {
+                "user_id": uid,
+                "username": uname,
+                "full_name": fname,
+                "role": role,
+                "total": sum(weekly),
+                "weekly": weekly,
+            }
+        )
+    out_users.sort(key=lambda r: (-r["total"], (r["username"] or "")))
+    return {"weeks": [w.isoformat() for w in week_list], "users": out_users}
+
+
 class QuotaExceeded(Exception):
     """Raised when a company has exhausted its weekly token allowance."""

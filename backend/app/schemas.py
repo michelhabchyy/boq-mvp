@@ -148,6 +148,22 @@ class CompanyUsageOut(BaseModel):
     users: list[UserUsageOut] = []
 
 
+class UserWeeklyOut(BaseModel):
+    user_id: int | None = None
+    username: str
+    full_name: str | None = None
+    role: str
+    total: int = 0  # billed tokens across the window
+    weekly: list[int] = []  # billed tokens per week, oldest→newest
+
+
+class UsageHistoryOut(BaseModel):
+    """Weekly per-user token history so a company can track top spenders."""
+
+    weeks: list[str] = []  # Monday (ISO) dates, oldest→newest
+    users: list[UserWeeklyOut] = []
+
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"

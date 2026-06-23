@@ -12,6 +12,8 @@ export default function UsagePage() {
   const isOwner = user?.role === "owner";
   const [me, setMe] = useState(null);
   const [co, setCo] = useState(null); // company breakdown (admin only)
+  const [history, setHistory] = useState(null); // weekly per-user history (admin)
+  const [weeksSel, setWeeksSel] = useState(8);
   const [error, setError] = useState(null);
   const [tick, setTick] = useState(0);
   const aliveRef = useRef(true);
@@ -27,12 +29,14 @@ export default function UsagePage() {
       if (canAdmin) {
         const breakdown = await api.get("/usage/users");
         if (aliveRef.current) setCo(breakdown);
+        const hist = await api.get(`/usage/history?weeks=${weeksSel}`);
+        if (aliveRef.current) setHistory(hist);
       }
       setError(null);
     } catch (e) {
       if (aliveRef.current) setError(String(e.message || e));
     }
-  }, [canAdmin]);
+  }, [canAdmin, weeksSel]);
 
   useEffect(() => {
     aliveRef.current = true;
@@ -176,8 +180,100 @@ export default function UsagePage() {
           )}
         </section>
       )}
+
+      {/* Weekly history — who spends the most over time (admins / owner) */}
+      {canAdmin && (
+        <section className="panel">
+          <div className="panel-head">
+            <h2>Weekly history</h2>
+            <select
+              className="input"
+              style={{ width: 130 }}
+              value={weeksSel}
+              onChange={(e) => setWeeksSel(Number(e.target.value))}
+            >
+              <option value={4}>Last 4 weeks</option>
+              <option value={8}>Last 8 weeks</option>
+              <option value={12}>Last 12 weeks</option>
+              <option value={26}>Last 26 weeks</option>
+            </select>
+          </div>
+          {!history && <div className="empty">Loading…</div>}
+          {history && history.users.length === 0 && (
+            <div className="empty">No usage recorded yet.</div>
+          )}
+          {history && history.users.length > 0 && (
+            <div style={{ overflowX: "auto" }}>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>User</th>
+                    {history.weeks.map((w, i) => (
+                      <th key={w} className="num" title={`Week of ${w}`}>
+                        {weekLabel(w)}
+                        {i === history.weeks.length - 1 && (
+                          <span className="muted" style={{ fontSize: 10 }}> (now)</span>
+                        )}
+                      </th>
+                    ))}
+                    <th className="num">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {history.users.map((u, ui) => {
+                    const peak = Math.max(1, ...u.weekly);
+                    return (
+                      <tr key={u.user_id ?? `former-${ui}`}>
+                        <td>
+                          <strong>{u.full_name || u.username}</strong>
+                          {ui === 0 && u.total > 0 && (
+                            <span className="badge badge-amber" style={{ marginLeft: 6 }}>
+                              top spender
+                            </span>
+                          )}
+                        </td>
+                        {u.weekly.map((v, wi) => (
+                          <td key={wi} className="num nums" title={fmt(v) + " tokens"}>
+                            {v > 0 ? (
+                              <>
+                                <span>{fmt(v)}</span>
+                                <div className="meter" style={{ marginTop: 3, opacity: 0.8 }}>
+                                  <span style={{ width: `${Math.round((v / peak) * 100)}%` }} />
+                                </div>
+                              </>
+                            ) : (
+                              <span className="muted">·</span>
+                            )}
+                          </td>
+                        ))}
+                        <td className="num nums">
+                          <strong>{fmt(u.total)}</strong>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <div className="panel-body">
+            <div className="tag">
+              Billed tokens per ISO week (resets Mondays). Sorted by who spent the
+              most over the period.
+            </div>
+          </div>
+        </section>
+      )}
     </main>
   );
+}
+
+// "2026-06-22" -> "Jun 22"
+function weekLabel(iso) {
+  const [y, m, d] = (iso || "").split("-").map(Number);
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  if (!m || !d) return iso;
+  return `${months[m - 1]} ${d}`;
 }
 
 function LiveDot({ tick }) {

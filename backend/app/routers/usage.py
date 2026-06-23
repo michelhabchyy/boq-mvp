@@ -11,15 +11,27 @@ it is exposed ONLY to the platform owner, never to a company's own admins/users,
 even via direct API calls.
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from ..auth import current_company_id, get_current_user
 from ..config import settings
 from ..db import get_db
 from ..models import Company, User
-from ..schemas import CompanyUsageOut, MyUsageOut, UserUsageOut
-from ..usage import effective_used, my_usage, user_breakdown, weekly_limit
+from ..schemas import (
+    CompanyUsageOut,
+    MyUsageOut,
+    UsageHistoryOut,
+    UserUsageOut,
+    UserWeeklyOut,
+)
+from ..usage import (
+    effective_used,
+    my_usage,
+    user_breakdown,
+    weekly_history,
+    weekly_limit,
+)
 
 router = APIRouter(prefix="/usage", tags=["usage"])
 
@@ -75,4 +87,22 @@ def company_token_usage(
         company_weekly_remaining=remaining,
         billing_multiplier=settings.token_billing_multiplier if is_owner else 1.0,
         users=[UserUsageOut(**row) for row in rows],
+    )
+
+
+@router.get("/history", response_model=UsageHistoryOut)
+def company_usage_history(
+    weeks: int = Query(8, ge=1, le=52, description="How many recent weeks to return"),
+    db: Session = Depends(get_db),
+    cid: int = Depends(current_company_id),
+    user: User = Depends(get_current_user),
+):
+    """Weekly per-user spend history (billed tokens) for the company — admins and
+    the owner-acting only. Lets a company see who spends the most over time."""
+    if user.role not in ("admin", "owner"):
+        raise HTTPException(403, "Company admin only")
+    data = weekly_history(db, cid, weeks)
+    return UsageHistoryOut(
+        weeks=data["weeks"],
+        users=[UserWeeklyOut(**u) for u in data["users"]],
     )
