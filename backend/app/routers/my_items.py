@@ -4,16 +4,22 @@ Items auto-embed on save so they're immediately matchable by the contractor."""
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..auth import require_subcontractor
 from ..db import get_db
 from ..embeddings import build_embedding_text, get_embedder
-from ..models import CatalogItem, User
-from ..schemas import CatalogItemIn, CatalogItemOut, CatalogItemPatch
-from .catalog import build_search_filter
+from ..item_utils import (
+    build_items_workbook,
+    generate_item_code,
+    log_item_change,
+    summarize_changes,
+)
+from ..models import CatalogItem, Company, ItemAudit, User
+from ..schemas import CatalogItemIn, CatalogItemOut, CatalogItemPatch, ItemAuditOut
+from .catalog import XLSX_MEDIA, build_search_filter
 
 router = APIRouter(prefix="/my-items", tags=["my-items"])
 
@@ -79,16 +85,12 @@ def list_my_items(
 def create_my_item(
     payload: CatalogItemIn, db: Session = Depends(get_db), me: User = Depends(require_subcontractor)
 ):
-    exists = db.execute(
-        select(CatalogItem).where(
-            CatalogItem.subcontractor_id == me.subcontractor_id,
-            CatalogItem.item_code == payload.item_code,
-        )
-    ).scalar_one_or_none()
-    if exists:
-        raise HTTPException(409, f"Item code '{payload.item_code}' already exists")
+    company = db.get(Company, me.company_id)
     item = CatalogItem(
-        **payload.model_dump(), company_id=me.company_id, subcontractor_id=me.subcontractor_id
+        **payload.model_dump(),
+        company_id=me.company_id,
+        subcontractor_id=me.subcontractor_id,
+        item_code=generate_item_code(db, company),
     )
     _embed(item)
     db.add(item)
@@ -117,20 +119,14 @@ def update_my_item(
             ),
         )
     fields = payload.model_dump(exclude_unset=True)
-    if "item_code" in fields and fields["item_code"] != item.item_code:
-        clash = db.execute(
-            select(CatalogItem).where(
-                CatalogItem.subcontractor_id == me.subcontractor_id,
-                CatalogItem.item_code == fields["item_code"],
-            )
-        ).scalar_one_or_none()
-        if clash:
-            raise HTTPException(409, f"Item code '{fields['item_code']}' already exists")
+    summary = summarize_changes(item, fields)
     for k, v in fields.items():
         setattr(item, k, v)
     if _EMBED_FIELDS & fields.keys():
         _embed(item)
     item.last_edited_at = datetime.now(timezone.utc)
+    if summary:
+        log_item_change(db, item, "edited", me, summary)
     db.commit()
     db.refresh(item)
     return item
@@ -138,6 +134,47 @@ def update_my_item(
 
 @router.delete("/{item_id}")
 def delete_my_item(item_id: int, db: Session = Depends(get_db), me: User = Depends(require_subcontractor)):
-    db.delete(_mine(db, item_id, me))
+    item = _mine(db, item_id, me)
+    log_item_change(db, item, "deleted", me)
+    db.delete(item)
     db.commit()
     return {"deleted": item_id}
+
+
+@router.get("/history", response_model=list[ItemAuditOut])
+def my_items_history(
+    limit: int = Query(100, ge=1, le=500),
+    db: Session = Depends(get_db),
+    me: User = Depends(require_subcontractor),
+):
+    """Edit/delete history for THIS subcontractor's own items (newest first)."""
+    return (
+        db.execute(
+            select(ItemAudit)
+            .where(ItemAudit.subcontractor_id == me.subcontractor_id)
+            .order_by(ItemAudit.created_at.desc())
+            .limit(limit)
+        )
+        .scalars()
+        .all()
+    )
+
+
+@router.get("/export")
+def export_my_items(db: Session = Depends(get_db), me: User = Depends(require_subcontractor)):
+    """Download this subcontractor's items (all filled fields) as an .xlsx sheet."""
+    items = (
+        db.execute(
+            select(CatalogItem)
+            .where(CatalogItem.subcontractor_id == me.subcontractor_id)
+            .order_by(CatalogItem.item_code)
+        )
+        .scalars()
+        .all()
+    )
+    data = build_items_workbook(items, title="My Items")
+    return Response(
+        content=data,
+        media_type=XLSX_MEDIA,
+        headers={"Content-Disposition": 'attachment; filename="my-items.xlsx"'},
+    )

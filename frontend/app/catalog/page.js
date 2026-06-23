@@ -26,6 +26,7 @@ export default function CatalogPage() {
   const [status, setStatus] = useState(null);
   const [subs, setSubs] = useState({});
   const [industries, setIndustries] = useState([]);
+  const [history, setHistory] = useState(null);
   const [q, setQ] = useState("");
   const [industry, setIndustry] = useState("");
   const [error, setError] = useState(null);
@@ -38,16 +39,18 @@ export default function CatalogPage() {
       const params = new URLSearchParams({ limit: "200" });
       if (query) params.set("q", query);
       if (ind) params.set("industry", ind);
-      const [list, st, subList, inds] = await Promise.all([
+      const [list, st, subList, inds, hist] = await Promise.all([
         api.get(`/catalog?${params.toString()}`),
         api.get("/catalog/embeddings/status"),
         api.get("/subcontractors"),
         api.get("/catalog/industries"),
+        api.get("/catalog/history"),
       ]);
       setItems(list);
       setStatus(st);
       setSubs(Object.fromEntries(subList.map((s) => [s.id, s.name])));
       setIndustries(inds);
+      setHistory(hist);
     } catch (e) {
       setError(String(e.message || e));
     }
@@ -105,6 +108,14 @@ export default function CatalogPage() {
             ⬆ Upload sheet
             <input type="file" accept=".csv,.xlsx" hidden onChange={onUpload} />
           </label>
+          <button
+            className="btn"
+            disabled={busy === "export"}
+            onClick={() => act("export", () => api.download("/catalog/export", "catalog.xlsx"))}
+            title="Download the catalog as an Excel sheet"
+          >
+            ⬇ Export Excel
+          </button>
           <button
             className="btn"
             disabled={busy === "embed"}
@@ -299,7 +310,58 @@ export default function CatalogPage() {
           </table>
         )}
       </section>
+
+      <ItemHistory history={history} />
     </main>
+  );
+}
+
+export function ItemHistory({ history }) {
+  return (
+    <section className="panel">
+      <div className="panel-head">
+        <h2>History</h2>
+        <span className="tag">edits & deletions</span>
+      </div>
+      {!history && <div className="empty">Loading…</div>}
+      {history && history.length === 0 && (
+        <div className="empty">No changes recorded yet.</div>
+      )}
+      {history && history.length > 0 && (
+        <table className="table">
+          <thead>
+            <tr>
+              <th>When</th>
+              <th>Action</th>
+              <th>Code</th>
+              <th>Item</th>
+              <th>Change</th>
+              <th>By</th>
+            </tr>
+          </thead>
+          <tbody>
+            {history.map((h) => (
+              <tr key={h.id}>
+                <td className="muted" style={{ fontSize: 12, whiteSpace: "nowrap" }}>
+                  {new Date(h.created_at).toLocaleString()}
+                </td>
+                <td>
+                  <span className={`badge ${h.action === "deleted" ? "badge-red" : "badge-amber"}`}>
+                    {h.action}
+                  </span>
+                </td>
+                <td><strong>{h.item_code}</strong></td>
+                <td dir="auto">{h.item_description || <span className="muted">—</span>}</td>
+                <td dir="auto" style={{ fontSize: 12 }}>
+                  {h.details || <span className="muted">—</span>}
+                </td>
+                <td className="muted" style={{ fontSize: 12 }}>{h.username || "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </section>
   );
 }
 
@@ -311,7 +373,6 @@ function ItemForm({ title, initial, submitLabel, onSubmit, onCancel, embedded, i
   function submit(e) {
     e.preventDefault();
     onSubmit({
-      item_code: f.item_code,
       description_en: f.description_en || null,
       description_ar: f.description_ar || null,
       unit: f.unit || null,
@@ -340,7 +401,12 @@ function ItemForm({ title, initial, submitLabel, onSubmit, onCancel, embedded, i
       <div className="form-section-label">Identification</div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
         <Field label="Item code">
-          <input className="input" value={f.item_code} onChange={set("item_code")} required />
+          <input
+            className="input"
+            value={f.item_code || "— assigned on save —"}
+            disabled
+            title="Generated automatically by the system"
+          />
         </Field>
         <Field label="Measure unit">
           <input className="input" value={f.unit || ""} onChange={set("unit")} placeholder="m, m², kg, L…" />

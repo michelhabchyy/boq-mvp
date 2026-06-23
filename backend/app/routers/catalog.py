@@ -1,16 +1,22 @@
 """Catalog endpoints — all scoped to the caller's company."""
 
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, UploadFile
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
-from ..auth import admin_company_id, current_company_id, require_owner
+from ..auth import admin_company_id, current_company_id, get_current_user, require_owner
 from ..catalog_loader import parse_catalog_file
 from ..config import settings
 from ..db import get_db
 from ..embeddings import build_embedding_text, get_embedder
-from ..models import CatalogItem
+from ..item_utils import (
+    build_items_workbook,
+    generate_item_code,
+    log_item_change,
+    summarize_changes,
+)
+from ..models import CatalogItem, Company, ItemAudit, User
 from ..schemas import (
     CatalogItemIn,
     CatalogItemOut,
@@ -18,9 +24,12 @@ from ..schemas import (
     CatalogUploadResult,
     EmbeddingBuildResult,
     EmbeddingStatus,
+    ItemAuditOut,
     RowError,
     SearchHit,
 )
+
+XLSX_MEDIA = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 router = APIRouter(prefix="/catalog", tags=["catalog"])
 
@@ -152,14 +161,12 @@ def create_item(
     db: Session = Depends(get_db),
     cid: int = Depends(admin_company_id),
 ):
-    exists = db.execute(
-        select(CatalogItem).where(
-            CatalogItem.company_id == cid, CatalogItem.item_code == payload.item_code
-        )
-    ).scalar_one_or_none()
-    if exists:
-        raise HTTPException(409, f"Item code '{payload.item_code}' already exists")
-    item = CatalogItem(**payload.model_dump(), company_id=cid)
+    company = db.get(Company, cid)
+    item = CatalogItem(
+        **payload.model_dump(),
+        company_id=cid,
+        item_code=generate_item_code(db, company),
+    )
     _embed_item(item)
     db.add(item)
     db.commit()
@@ -173,22 +180,17 @@ def update_item(
     payload: CatalogItemPatch,
     db: Session = Depends(get_db),
     cid: int = Depends(admin_company_id),
+    user: User = Depends(get_current_user),
 ):
     item = _owned(db, item_id, cid)
     fields = payload.model_dump(exclude_unset=True)
-    if "item_code" in fields and fields["item_code"] != item.item_code:
-        clash = db.execute(
-            select(CatalogItem).where(
-                CatalogItem.company_id == cid,
-                CatalogItem.item_code == fields["item_code"],
-            )
-        ).scalar_one_or_none()
-        if clash:
-            raise HTTPException(409, f"Item code '{fields['item_code']}' already exists")
+    summary = summarize_changes(item, fields)
     for key, value in fields.items():
         setattr(item, key, value)
     if _EMBED_FIELDS & fields.keys():
         _embed_item(item)
+    if summary:  # only log when something tracked actually changed
+        log_item_change(db, item, "edited", user, summary)
     db.commit()
     db.refresh(item)
     return item
@@ -196,9 +198,13 @@ def update_item(
 
 @router.delete("/item/{item_id}")
 def delete_item(
-    item_id: int, db: Session = Depends(get_db), cid: int = Depends(admin_company_id)
+    item_id: int,
+    db: Session = Depends(get_db),
+    cid: int = Depends(admin_company_id),
+    user: User = Depends(get_current_user),
 ):
     item = _owned(db, item_id, cid)
+    log_item_change(db, item, "deleted", user)
     db.delete(item)
     db.commit()
     return {"deleted": item_id}
@@ -248,6 +254,45 @@ def clear_catalog(db: Session = Depends(get_db), cid: int = Depends(admin_compan
     deleted = db.query(CatalogItem).filter(CatalogItem.company_id == cid).delete()
     db.commit()
     return {"deleted": deleted}
+
+
+@router.get("/history", response_model=list[ItemAuditOut])
+def catalog_history(
+    limit: int = Query(100, ge=1, le=500),
+    db: Session = Depends(get_db),
+    cid: int = Depends(current_company_id),
+):
+    """Recent edit/delete history for the whole company's catalog (newest first)."""
+    return (
+        db.execute(
+            select(ItemAudit)
+            .where(ItemAudit.company_id == cid)
+            .order_by(ItemAudit.created_at.desc())
+            .limit(limit)
+        )
+        .scalars()
+        .all()
+    )
+
+
+@router.get("/export")
+def export_catalog(db: Session = Depends(get_db), cid: int = Depends(current_company_id)):
+    """Download the company's catalog (all filled fields) as an .xlsx sheet."""
+    items = (
+        db.execute(
+            select(CatalogItem)
+            .where(CatalogItem.company_id == cid)
+            .order_by(CatalogItem.item_code)
+        )
+        .scalars()
+        .all()
+    )
+    data = build_items_workbook(items, title="Catalog")
+    return Response(
+        content=data,
+        media_type=XLSX_MEDIA,
+        headers={"Content-Disposition": 'attachment; filename="catalog.xlsx"'},
+    )
 
 
 # --- embeddings + semantic search (scoped) ----------------------------------

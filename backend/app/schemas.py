@@ -206,6 +206,19 @@ class CatalogItemOut(BaseModel):
     subcontractor_id: int | None = None
 
 
+class ItemAuditOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    item_code: str
+    item_description: str | None = None
+    action: str  # edited | deleted
+    details: str | None = None
+    username: str | None = None
+    subcontractor_id: int | None = None
+    created_at: datetime
+
+
 class SearchHit(BaseModel):
     item: CatalogItemOut
     distance: float  # cosine distance (0 = identical, 2 = opposite)
@@ -326,7 +339,7 @@ class MatchRunResult(BaseModel):
 
 
 class CatalogItemIn(BaseModel):
-    item_code: str
+    # No item_code: the system assigns a unique, never-reused code on create.
     description_ar: str | None = None
     description_en: str | None = None
     unit: str | None = None
@@ -342,7 +355,7 @@ class CatalogItemIn(BaseModel):
 
 
 class CatalogItemPatch(BaseModel):
-    item_code: str | None = None
+    # item_code is system-managed and cannot be changed.
     description_ar: str | None = None
     description_en: str | None = None
     unit: str | None = None

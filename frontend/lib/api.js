@@ -91,6 +91,33 @@ export const api = {
       body: formData,
     }).then(handle),
 
+  // Download a binary file (e.g. .xlsx) and trigger a browser save.
+  async download(path, fallbackName = "download") {
+    const res = await fetch(`${BASE}${path}`, { headers: authHeaders() });
+    if (!res.ok) {
+      let detail;
+      try {
+        detail = (await res.json()).detail;
+      } catch {
+        detail = res.statusText;
+      }
+      throw new Error(typeof detail === "string" ? detail : "Download failed");
+    }
+    let name = fallbackName;
+    const cd = res.headers.get("Content-Disposition");
+    const m = cd && cd.match(/filename="?([^"]+)"?/);
+    if (m) name = m[1];
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  },
+
   // --- auth helpers ---
   async login(username, password) {
     const res = await fetch(`${BASE}/auth/login`, {

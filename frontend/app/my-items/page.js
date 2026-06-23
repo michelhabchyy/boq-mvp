@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, money } from "../../lib/api";
 import { useAuth } from "../AppChrome";
+import { ItemHistory } from "../catalog/page";
 
 const BLANK = {
   item_code: "",
@@ -23,17 +24,24 @@ const BLANK = {
 export default function MyItemsPage() {
   const { user, loading } = useAuth();
   const [items, setItems] = useState(null);
+  const [history, setHistory] = useState(null);
   const [q, setQ] = useState("");
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(null);
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState(null);
 
-  const load = useCallback((query = "") => {
-    api
-      .get(`/my-items${query ? `?q=${encodeURIComponent(query)}` : ""}`)
-      .then(setItems)
-      .catch((e) => setError(String(e.message || e)));
+  const load = useCallback(async (query = "") => {
+    try {
+      const [list, hist] = await Promise.all([
+        api.get(`/my-items${query ? `?q=${encodeURIComponent(query)}` : ""}`),
+        api.get("/my-items/history"),
+      ]);
+      setItems(list);
+      setHistory(hist);
+    } catch (e) {
+      setError(String(e.message || e));
+    }
   }, []);
 
   useEffect(() => {
@@ -81,6 +89,14 @@ export default function MyItemsPage() {
         <Stat k="Items" v={items?.length ?? "—"} />
         <Stat k="Industries" v={industries.length || "—"} />
         <div className="actions">
+          <button
+            className="btn"
+            disabled={busy === "export"}
+            onClick={() => act("export", () => api.download("/my-items/export", "my-items.xlsx"))}
+            title="Download your items as an Excel sheet"
+          >
+            ⬇ Export Excel
+          </button>
           <button className="btn btn-primary" onClick={() => setAdding((v) => !v)}>+ New item</button>
         </div>
       </div>
@@ -192,6 +208,8 @@ export default function MyItemsPage() {
           </table>
         )}
       </section>
+
+      <ItemHistory history={history} />
     </main>
   );
 }
@@ -203,7 +221,6 @@ function ItemForm({ title, initial, submitLabel, onSubmit, onCancel, embedded, i
   function submit(e) {
     e.preventDefault();
     onSubmit({
-      item_code: f.item_code,
       description_en: f.description_en || null,
       description_ar: f.description_ar || null,
       unit: f.unit || null,
@@ -224,7 +241,7 @@ function ItemForm({ title, initial, submitLabel, onSubmit, onCancel, embedded, i
 
       <div className="form-section-label">Identification</div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
-        <Field label="Item code"><input className="input" value={f.item_code} onChange={set("item_code")} required /></Field>
+        <Field label="Item code"><input className="input" value={f.item_code || "— assigned on save —"} disabled title="Generated automatically by the system" /></Field>
         <Field label="Measure unit"><input className="input" value={f.unit || ""} onChange={set("unit")} placeholder="m, m², kg, L…" /></Field>
         <Field label="Count unit"><input className="input" value={f.count_unit || ""} onChange={set("count_unit")} placeholder="each, pcs, set, box…" /></Field>
         <Field label="Model / part no."><input className="input" value={f.model_number || ""} onChange={set("model_number")} /></Field>
