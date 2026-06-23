@@ -161,7 +161,10 @@ class CatalogItem(Base):
 
     description_ar: Mapped[str | None] = mapped_column(Text)
     description_en: Mapped[str | None] = mapped_column(Text)
+    # Unit of MEASURE (m, m², kg, L …) — this is what flows into the BoQ.
     unit: Mapped[str | None] = mapped_column(String(50))
+    # COUNT unit (each, piece, no., set, box, roll …) — how the item is counted.
+    count_unit: Mapped[str | None] = mapped_column(String(50))
 
     # Single all-in cost per unit (material + labour combined). No markup is
     # applied — the BoQ price equals this cost.

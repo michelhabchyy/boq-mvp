@@ -64,6 +64,8 @@ def init_db() -> None:
         conn.execute(text("ALTER TABLE catalog_items DROP COLUMN IF EXISTS material_cost"))
         conn.execute(text("ALTER TABLE catalog_items DROP COLUMN IF EXISTS labour_cost"))
         conn.execute(text("ALTER TABLE catalog_items DROP COLUMN IF EXISTS markup"))
+        # Count unit alongside the measure unit.
+        conn.execute(text("ALTER TABLE catalog_items ADD COLUMN IF NOT EXISTS count_unit VARCHAR(50)"))
         # Advanced catalog fields: industry/category/supplier/model/link/notes.
         conn.execute(text("ALTER TABLE catalog_items ADD COLUMN IF NOT EXISTS industry VARCHAR(120)"))
         conn.execute(text("ALTER TABLE catalog_items ADD COLUMN IF NOT EXISTS category VARCHAR(120)"))

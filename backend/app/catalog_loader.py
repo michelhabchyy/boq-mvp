@@ -19,7 +19,8 @@ HEADER_ALIASES: dict[str, set[str]] = {
     "item_code": {"item_code", "code", "sku", "item_no", "item_number"},
     "description_ar": {"description_ar", "arabic_description", "arabic", "ar", "desc_ar"},
     "description_en": {"description_en", "english_description", "english", "en", "desc_en", "description"},
-    "unit": {"unit", "uom", "units"},
+    "unit": {"unit", "uom", "units", "measure_unit", "measure", "unit_of_measure", "measurement_unit"},
+    "count_unit": {"count_unit", "count", "count_uom", "pack_unit", "each_unit", "counting_unit", "qty_unit"},
     "unit_cost": {
         "unit_cost", "cost", "unit_price", "price", "rate", "unit_rate",
         "cost_per_unit", "unitcost",

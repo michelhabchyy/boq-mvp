@@ -193,6 +193,7 @@ class CatalogItemOut(BaseModel):
     description_ar: str | None
     description_en: str | None
     unit: str | None
+    count_unit: str | None = None
     unit_cost: float
     brand: str | None
     industry: str | None = None
@@ -328,6 +329,7 @@ class CatalogItemIn(BaseModel):
     description_ar: str | None = None
     description_en: str | None = None
     unit: str | None = None
+    count_unit: str | None = None
     unit_cost: float = 0
     brand: str | None = None
     industry: str | None = None
@@ -343,6 +345,7 @@ class CatalogItemPatch(BaseModel):
     description_ar: str | None = None
     description_en: str | None = None
     unit: str | None = None
+    count_unit: str | None = None
     unit_cost: float | None = None
     brand: str | None = None
     industry: str | None = None

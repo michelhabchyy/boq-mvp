@@ -9,6 +9,7 @@ const BLANK = {
   description_en: "",
   description_ar: "",
   unit: "",
+  count_unit: "",
   unit_cost: 0,
   brand: "",
   industry: "",
@@ -190,7 +191,7 @@ export default function CatalogPage() {
                 <th>Code</th>
                 <th>Description (EN / AR)</th>
                 <th>Industry / Category</th>
-                <th>Unit</th>
+                <th>Units (measure / count)</th>
                 <th className="num">Unit cost</th>
                 <th>Brand / Supplier</th>
                 <th>Sub</th>
@@ -257,7 +258,12 @@ export default function CatalogPage() {
                         <div className="muted" style={{ fontSize: 11 }}>{it.category}</div>
                       )}
                     </td>
-                    <td>{it.unit}</td>
+                    <td>
+                      {it.unit || <span className="muted">—</span>}
+                      {it.count_unit && (
+                        <span className="muted"> / {it.count_unit}</span>
+                      )}
+                    </td>
                     <td className="num">{money(it.unit_cost)}</td>
                     <td>
                       {it.brand}
@@ -309,6 +315,7 @@ function ItemForm({ title, initial, submitLabel, onSubmit, onCancel, embedded, i
       description_en: f.description_en || null,
       description_ar: f.description_ar || null,
       unit: f.unit || null,
+      count_unit: f.count_unit || null,
       unit_cost: num(f.unit_cost),
       brand: f.brand || null,
       industry: f.industry || null,
@@ -335,8 +342,11 @@ function ItemForm({ title, initial, submitLabel, onSubmit, onCancel, embedded, i
         <Field label="Item code">
           <input className="input" value={f.item_code} onChange={set("item_code")} required />
         </Field>
-        <Field label="Unit">
-          <input className="input" value={f.unit || ""} onChange={set("unit")} placeholder="m, pcs, kg…" />
+        <Field label="Measure unit">
+          <input className="input" value={f.unit || ""} onChange={set("unit")} placeholder="m, m², kg, L…" />
+        </Field>
+        <Field label="Count unit">
+          <input className="input" value={f.count_unit || ""} onChange={set("count_unit")} placeholder="each, pcs, set, box…" />
         </Field>
         <Field label="Model / part no.">
           <input className="input" value={f.model_number || ""} onChange={set("model_number")} />
