@@ -144,6 +144,10 @@ def get_embedder() -> Embedder:
     return factory()
 
 
-def build_embedding_text(description_en: str | None, description_ar: str | None) -> str:
-    """The bilingual text we embed for a catalog item (EN + AR together)."""
-    return "\n".join(p for p in (description_en, description_ar) if p)
+def build_embedding_text(
+    description_en: str | None, description_ar: str | None, *extra: str | None
+) -> str:
+    """The text we embed for a catalog item: bilingual descriptions (EN + AR)
+    plus any extra context terms (industry, category, brand, model) that sharpen
+    semantic matching. Empty/None parts are dropped."""
+    return "\n".join(p for p in (description_en, description_ar, *extra) if p)

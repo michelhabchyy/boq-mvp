@@ -40,6 +40,16 @@ def init_db() -> None:
                 f"ADD COLUMN IF NOT EXISTS embedding vector({int(settings.embed_dim)})"
             )
         )
+        # Advanced catalog fields: industry/category/supplier/model/link/notes.
+        conn.execute(text("ALTER TABLE catalog_items ADD COLUMN IF NOT EXISTS industry VARCHAR(120)"))
+        conn.execute(text("ALTER TABLE catalog_items ADD COLUMN IF NOT EXISTS category VARCHAR(120)"))
+        conn.execute(text("ALTER TABLE catalog_items ADD COLUMN IF NOT EXISTS supplier VARCHAR(200)"))
+        conn.execute(text("ALTER TABLE catalog_items ADD COLUMN IF NOT EXISTS model_number VARCHAR(120)"))
+        conn.execute(text("ALTER TABLE catalog_items ADD COLUMN IF NOT EXISTS link TEXT"))
+        conn.execute(text("ALTER TABLE catalog_items ADD COLUMN IF NOT EXISTS notes TEXT"))
+        conn.execute(
+            text("CREATE INDEX IF NOT EXISTS ix_catalog_items_industry ON catalog_items (industry)")
+        )
         # Subcontractors: link columns on users + catalog_items, snapshot on boq.
         conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS subcontractor_id INTEGER"))
         conn.execute(text("ALTER TABLE catalog_items ADD COLUMN IF NOT EXISTS subcontractor_id INTEGER"))

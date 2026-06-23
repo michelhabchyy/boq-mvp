@@ -168,6 +168,21 @@ class CatalogItem(Base):
     markup: Mapped[float] = mapped_column(Numeric(7, 3), default=0, nullable=False)
     brand: Mapped[str | None] = mapped_column(String(200))
 
+    # --- Advanced classification & references ---
+    # Trade/industry this item belongs to (e.g. Electrical, Plumbing, HVAC,
+    # Civil). Indexed so the catalog can be filtered/grouped by industry.
+    industry: Mapped[str | None] = mapped_column(String(120), index=True)
+    # Finer grouping within an industry (e.g. "Cables", "Valves", "Lighting").
+    category: Mapped[str | None] = mapped_column(String(120))
+    # Where the item/price comes from (vendor/distributor name).
+    supplier: Mapped[str | None] = mapped_column(String(200))
+    # Manufacturer model / part number for precise identification.
+    model_number: Mapped[str | None] = mapped_column(String(120))
+    # Any reference URL: product page, datasheet, spec sheet, drawing, etc.
+    link: Mapped[str | None] = mapped_column(Text)
+    # Free-form notes / technical specifications.
+    notes: Mapped[str | None] = mapped_column(Text)
+
     embedding: Mapped[list[float] | None] = mapped_column(
         Vector(settings.embed_dim), nullable=True
     )

@@ -197,6 +197,12 @@ class CatalogItemOut(BaseModel):
     labour_cost: float
     markup: float
     brand: str | None
+    industry: str | None = None
+    category: str | None = None
+    supplier: str | None = None
+    model_number: str | None = None
+    link: str | None = None
+    notes: str | None = None
     subcontractor_id: int | None = None
 
 
@@ -328,6 +334,12 @@ class CatalogItemIn(BaseModel):
     labour_cost: float = 0
     markup: float = 0
     brand: str | None = None
+    industry: str | None = None
+    category: str | None = None
+    supplier: str | None = None
+    model_number: str | None = None
+    link: str | None = None
+    notes: str | None = None
 
 
 class CatalogItemPatch(BaseModel):
@@ -339,6 +351,12 @@ class CatalogItemPatch(BaseModel):
     labour_cost: float | None = None
     markup: float | None = None
     brand: str | None = None
+    industry: str | None = None
+    category: str | None = None
+    supplier: str | None = None
+    model_number: str | None = None
+    link: str | None = None
+    notes: str | None = None
 
 
 class RowError(BaseModel):

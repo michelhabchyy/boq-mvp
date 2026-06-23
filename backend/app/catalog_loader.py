@@ -24,6 +24,13 @@ HEADER_ALIASES: dict[str, set[str]] = {
     "labour_cost": {"labour_cost", "labor_cost", "labour", "labor"},
     "markup": {"markup", "markup_pct", "markup_percent", "margin"},
     "brand": {"brand", "manufacturer", "make", "maker"},
+    # Advanced optional columns.
+    "industry": {"industry", "trade", "discipline", "sector"},
+    "category": {"category", "subcategory", "sub_category", "type", "group"},
+    "supplier": {"supplier", "vendor", "distributor", "source"},
+    "model_number": {"model_number", "model", "part_number", "part_no", "mpn", "model_no"},
+    "link": {"link", "url", "links", "reference", "reference_url", "datasheet", "spec_url"},
+    "notes": {"notes", "note", "remarks", "comment", "comments", "specs", "specification"},
 }
 
 REQUIRED_COLUMNS = {"item_code", "unit", "material_cost", "labour_cost", "markup"}

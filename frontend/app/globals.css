@@ -675,6 +675,21 @@ input[type="file"] {
   }
 }
 
+/* ---------- Form section label (grouped fields) ---------- */
+.form-section-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  color: var(--text-subtle);
+  margin: 14px 0 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--line, rgba(0, 0, 0, 0.08));
+}
+.form-section-label:first-of-type {
+  margin-top: 4px;
+}
+
 /* ---------- Usage meter bar ---------- */
 .meter {
   height: 8px;

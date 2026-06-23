@@ -26,9 +26,28 @@ router = APIRouter(prefix="/catalog", tags=["catalog"])
 
 
 def _embed_item(item: CatalogItem) -> None:
-    """(Re)generate this item's embedding from its descriptions, in place."""
-    text = build_embedding_text(item.description_en, item.description_ar)
+    """(Re)generate this item's embedding from its descriptions + classification
+    (industry/category/brand/model sharpen the semantic match), in place."""
+    text = build_embedding_text(
+        item.description_en,
+        item.description_ar,
+        item.industry,
+        item.category,
+        item.brand,
+        item.model_number,
+    )
     item.embedding = get_embedder().embed_documents([text])[0] if text else None
+
+
+# Editing any of these changes the embedding text, so we re-embed on change.
+_EMBED_FIELDS = {
+    "description_en",
+    "description_ar",
+    "industry",
+    "category",
+    "brand",
+    "model_number",
+}
 
 
 def _owned(db: Session, item_id: int, cid: int) -> CatalogItem:
@@ -138,7 +157,7 @@ def update_item(
             raise HTTPException(409, f"Item code '{fields['item_code']}' already exists")
     for key, value in fields.items():
         setattr(item, key, value)
-    if "description_en" in fields or "description_ar" in fields:
+    if _EMBED_FIELDS & fields.keys():
         _embed_item(item)
     db.commit()
     db.refresh(item)
@@ -157,13 +176,16 @@ def delete_item(
 
 @router.get("", response_model=list[CatalogItemOut])
 def list_catalog(
-    q: str | None = Query(None, description="Filter by item_code or description (AR/EN)"),
+    q: str | None = Query(None, description="Filter by code / description / brand / supplier / model"),
+    industry: str | None = Query(None, description="Filter to a single industry"),
     limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
     cid: int = Depends(current_company_id),
 ):
     stmt = select(CatalogItem).where(CatalogItem.company_id == cid).order_by(CatalogItem.item_code)
+    if industry:
+        stmt = stmt.where(CatalogItem.industry == industry)
     if q:
         like = f"%{q}%"
         stmt = stmt.where(
@@ -171,9 +193,25 @@ def list_catalog(
                 CatalogItem.item_code.ilike(like),
                 CatalogItem.description_ar.ilike(like),
                 CatalogItem.description_en.ilike(like),
+                CatalogItem.brand.ilike(like),
+                CatalogItem.supplier.ilike(like),
+                CatalogItem.model_number.ilike(like),
+                CatalogItem.category.ilike(like),
             )
         )
     return db.execute(stmt.limit(limit).offset(offset)).scalars().all()
+
+
+@router.get("/industries", response_model=list[str])
+def list_industries(db: Session = Depends(get_db), cid: int = Depends(current_company_id)):
+    """Distinct industries used in this company's catalog (for filters/pickers)."""
+    rows = db.execute(
+        select(CatalogItem.industry)
+        .where(CatalogItem.company_id == cid, CatalogItem.industry.isnot(None))
+        .distinct()
+        .order_by(CatalogItem.industry)
+    ).scalars().all()
+    return [r for r in rows if r]
 
 
 @router.get("/count")
@@ -225,7 +263,12 @@ def build_embeddings(
         stmt = stmt.where(CatalogItem.embedding.is_(None))
     items = db.execute(stmt).scalars().all()
     if items:
-        texts = [build_embedding_text(it.description_en, it.description_ar) for it in items]
+        texts = [
+            build_embedding_text(
+                it.description_en, it.description_ar, it.industry, it.category, it.brand, it.model_number
+            )
+            for it in items
+        ]
         for item, vector in zip(items, embedder.embed_documents(texts)):
             item.embedding = vector
         db.commit()
