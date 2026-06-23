@@ -202,6 +202,7 @@ class CatalogItemOut(BaseModel):
     model_number: str | None = None
     link: str | None = None
     notes: str | None = None
+    last_edited_at: datetime | None = None
     subcontractor_id: int | None = None
 
 

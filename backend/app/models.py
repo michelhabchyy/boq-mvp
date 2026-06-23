@@ -185,6 +185,9 @@ class CatalogItem(Base):
     link: Mapped[str | None] = mapped_column(Text)
     # Free-form notes / technical specifications.
     notes: Mapped[str | None] = mapped_column(Text)
+    # When a SUBCONTRACTOR last edited this item — used to enforce the
+    # one-edit-per-calendar-month limit on subcontractor self-service edits.
+    last_edited_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     embedding: Mapped[list[float] | None] = mapped_column(
         Vector(settings.embed_dim), nullable=True

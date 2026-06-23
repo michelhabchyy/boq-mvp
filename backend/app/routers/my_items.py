@@ -2,8 +2,10 @@
 edit its OWN catalog items (company catalog rows tagged with its subcontractor_id).
 Items auto-embed on save so they're immediately matchable by the contractor."""
 
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import or_, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..auth import require_subcontractor
@@ -11,8 +13,26 @@ from ..db import get_db
 from ..embeddings import build_embedding_text, get_embedder
 from ..models import CatalogItem, User
 from ..schemas import CatalogItemIn, CatalogItemOut, CatalogItemPatch
+from .catalog import build_search_filter
 
 router = APIRouter(prefix="/my-items", tags=["my-items"])
+
+
+def _edit_blocked_until(last_edited_at: datetime | None) -> datetime | None:
+    """If the item was already edited THIS calendar month, return the moment the
+    next edit becomes allowed (start of next month). Otherwise None (allowed)."""
+    if last_edited_at is None:
+        return None
+    now = datetime.now(timezone.utc)
+    le = last_edited_at
+    if le.tzinfo is None:  # stored naive → treat as UTC
+        le = le.replace(tzinfo=timezone.utc)
+    if (le.year, le.month) != (now.year, now.month):
+        return None
+    # First day of next month, 00:00 UTC.
+    year = now.year + (1 if now.month == 12 else 0)
+    month = 1 if now.month == 12 else now.month + 1
+    return datetime(year, month, 1, tzinfo=timezone.utc)
 
 
 def _embed(item: CatalogItem) -> None:
@@ -49,15 +69,9 @@ def list_my_items(
         .where(CatalogItem.subcontractor_id == me.subcontractor_id)
         .order_by(CatalogItem.item_code)
     )
-    if q:
-        like = f"%{q}%"
-        stmt = stmt.where(
-            or_(
-                CatalogItem.item_code.ilike(like),
-                CatalogItem.description_ar.ilike(like),
-                CatalogItem.description_en.ilike(like),
-            )
-        )
+    search = build_search_filter(q)
+    if search is not None:
+        stmt = stmt.where(search)
     return db.execute(stmt).scalars().all()
 
 
@@ -91,6 +105,17 @@ def update_my_item(
     me: User = Depends(require_subcontractor),
 ):
     item = _mine(db, item_id, me)
+    # One edit per calendar month per item.
+    blocked_until = _edit_blocked_until(item.last_edited_at)
+    if blocked_until is not None:
+        raise HTTPException(
+            status_code=429,
+            detail=(
+                "You can edit each item only once per month. This item was "
+                "already edited this month — you can edit it again on "
+                f"{blocked_until:%d %B %Y}."
+            ),
+        )
     fields = payload.model_dump(exclude_unset=True)
     if "item_code" in fields and fields["item_code"] != item.item_code:
         clash = db.execute(
@@ -105,6 +130,7 @@ def update_my_item(
         setattr(item, k, v)
     if _EMBED_FIELDS & fields.keys():
         _embed(item)
+    item.last_edited_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(item)
     return item

@@ -73,7 +73,8 @@ export default function MyItemsPage() {
       <h1 className="page-title">My Items</h1>
       <p className="page-sub">
         Your price list. The contractor matches RFP work against these items —
-        each is searchable as soon as you save it.
+        each is searchable as soon as you save it. <strong>Each item can be
+        edited only once per calendar month.</strong>
       </p>
 
       <div className="statbar">
@@ -169,7 +170,19 @@ export default function MyItemsPage() {
                       {it.supplier && <div className="muted" style={{ fontSize: 11 }}>{it.supplier}</div>}
                     </td>
                     <td className="cell-actions">
-                      <button className="btn btn-sm" onClick={() => setEditing(it.id)}>Edit</button>
+                      {(() => {
+                        const lock = editableAgainOn(it.last_edited_at);
+                        return (
+                          <button
+                            className="btn btn-sm"
+                            disabled={!!lock}
+                            onClick={() => setEditing(it.id)}
+                            title={lock ? `Already edited this month — editable again on ${lock.toLocaleDateString()}` : "Edit"}
+                          >
+                            {lock ? "Edit 🔒" : "Edit"}
+                          </button>
+                        );
+                      })()}
                       <button className="btn btn-sm btn-danger-ghost" onClick={() => confirm(`Delete ${it.item_code}?`) && act(`d-${it.id}`, () => api.del(`/my-items/${it.id}`))}>Delete</button>
                     </td>
                   </tr>
@@ -253,6 +266,19 @@ function ItemForm({ title, initial, submitLabel, onSubmit, onCancel, embedded, i
       </div>
     </form>
   );
+}
+
+// If the item was already edited THIS calendar month (UTC, matching the
+// backend), return the Date editing is allowed again; otherwise null.
+function editableAgainOn(lastEditedAt) {
+  if (!lastEditedAt) return null;
+  const le = new Date(lastEditedAt);
+  const now = new Date();
+  if (le.getUTCFullYear() === now.getUTCFullYear() && le.getUTCMonth() === now.getUTCMonth()) {
+    const last = now.getUTCMonth() === 11;
+    return new Date(Date.UTC(now.getUTCFullYear() + (last ? 1 : 0), last ? 0 : now.getUTCMonth() + 1, 1));
+  }
+  return null;
 }
 
 function Field({ label, children }) {

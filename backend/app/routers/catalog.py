@@ -1,7 +1,7 @@
 """Catalog endpoints — all scoped to the caller's company."""
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile
-from sqlalchemy import func, or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
@@ -23,6 +23,36 @@ from ..schemas import (
 )
 
 router = APIRouter(prefix="/catalog", tags=["catalog"])
+
+# Every text field a free-text query scans, so search reads across ALL item info.
+SEARCH_COLUMNS = (
+    CatalogItem.item_code,
+    CatalogItem.description_en,
+    CatalogItem.description_ar,
+    CatalogItem.brand,
+    CatalogItem.supplier,
+    CatalogItem.model_number,
+    CatalogItem.category,
+    CatalogItem.industry,
+    CatalogItem.unit,
+    CatalogItem.count_unit,
+    CatalogItem.notes,
+    CatalogItem.link,
+)
+
+
+def build_search_filter(q: str | None):
+    """Multi-term search: split the query into words and require EACH word to
+    appear in at least one field (AND across words, OR across fields). This is
+    more accurate than a single substring match — e.g. 'copper cable electrical'
+    only returns items matching all three terms somewhere in their data."""
+    if not q or not q.strip():
+        return None
+    clauses = []
+    for term in q.split():
+        like = f"%{term}%"
+        clauses.append(or_(*[col.ilike(like) for col in SEARCH_COLUMNS]))
+    return and_(*clauses)
 
 
 def _embed_item(item: CatalogItem) -> None:
@@ -186,19 +216,9 @@ def list_catalog(
     stmt = select(CatalogItem).where(CatalogItem.company_id == cid).order_by(CatalogItem.item_code)
     if industry:
         stmt = stmt.where(CatalogItem.industry == industry)
-    if q:
-        like = f"%{q}%"
-        stmt = stmt.where(
-            or_(
-                CatalogItem.item_code.ilike(like),
-                CatalogItem.description_ar.ilike(like),
-                CatalogItem.description_en.ilike(like),
-                CatalogItem.brand.ilike(like),
-                CatalogItem.supplier.ilike(like),
-                CatalogItem.model_number.ilike(like),
-                CatalogItem.category.ilike(like),
-            )
-        )
+    search = build_search_filter(q)
+    if search is not None:
+        stmt = stmt.where(search)
     return db.execute(stmt.limit(limit).offset(offset)).scalars().all()
 
 

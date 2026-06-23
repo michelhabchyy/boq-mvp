@@ -73,6 +73,7 @@ def init_db() -> None:
         conn.execute(text("ALTER TABLE catalog_items ADD COLUMN IF NOT EXISTS model_number VARCHAR(120)"))
         conn.execute(text("ALTER TABLE catalog_items ADD COLUMN IF NOT EXISTS link TEXT"))
         conn.execute(text("ALTER TABLE catalog_items ADD COLUMN IF NOT EXISTS notes TEXT"))
+        conn.execute(text("ALTER TABLE catalog_items ADD COLUMN IF NOT EXISTS last_edited_at TIMESTAMPTZ"))
         conn.execute(
             text("CREATE INDEX IF NOT EXISTS ix_catalog_items_industry ON catalog_items (industry)")
         )
