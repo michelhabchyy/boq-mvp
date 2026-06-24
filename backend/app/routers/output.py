@@ -54,18 +54,19 @@ def export_boq(
         boq_q = boq_q.where(BoqLine.subcontractor == sub_name)
     boq_lines = db.execute(boq_q).scalars().all()
 
-    if not boq_lines:
-        raise HTTPException(
-            status_code=400,
-            detail="No BoQ lines to export for this selection. Approve lines first, "
-            "or pass ?include_unapproved=true.",
-        )
-
-    # Group by scope line, preserving scope order; skip empty scope lines.
+    # Group by scope line, preserving scope order.
     by_line: dict[int, list[BoqLine]] = {}
     for bl in boq_lines:
         by_line.setdefault(bl.rfp_line_id, []).append(bl)
-    groups = [(ln, by_line[ln.id]) for ln in lines if ln.id in by_line]
+
+    if sub_name is not None:
+        # Per-subcontractor export: only the scope lines they actually priced.
+        groups = [(ln, by_line[ln.id]) for ln in lines if ln.id in by_line]
+    else:
+        # Full BoQ: ALWAYS exportable — include every scope line, with blank
+        # fillable rows where no item was proposed (so export works even with
+        # nothing matched yet).
+        groups = [(ln, by_line.get(ln.id, [])) for ln in lines]
 
     content = build_boq_workbook(doc.filename, groups)
 

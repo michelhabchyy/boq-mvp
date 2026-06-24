@@ -82,14 +82,21 @@ export default function ReviewPage() {
           >
             ✓ Approve all
           </button>
-          <a
+          <button
             className={`btn ${approved > 0 ? "btn-success" : ""}`}
-            href={`${api.base}/output/rfp/${rfpId}/boq.xlsx`}
-            style={approved > 0 ? undefined : { pointerEvents: "none", opacity: 0.5 }}
-            title={approved > 0 ? "Download approved lines as Excel" : "Approve lines first"}
+            disabled={busy === "export"}
+            onClick={() =>
+              action("export", () =>
+                api.download(
+                  `/output/rfp/${rfpId}/boq.xlsx?include_unapproved=true`,
+                  `BoQ_${rfpId}.xlsx`
+                )
+              )
+            }
+            title="Download the BoQ as Excel (works even if nothing is matched yet)"
           >
-            ⬇ Export
-          </a>
+            {busy === "export" ? "Exporting…" : "⬇ Export"}
+          </button>
         </div>
       </div>
 

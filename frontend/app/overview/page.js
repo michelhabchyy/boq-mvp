@@ -182,11 +182,11 @@ export default function CompanyOverviewPage() {
                     <Link className="btn btn-sm" href={`/review/${r.id}`}>Open →</Link>
                     <button
                       className="btn btn-sm btn-primary"
-                      disabled={!r.boq_lines || busy === `rfp-${r.id}`}
+                      disabled={busy === `rfp-${r.id}`}
                       onClick={() =>
                         download(`rfp-${r.id}`, `/output/rfp/${r.id}/boq.xlsx?include_unapproved=true`, `BoQ_${r.id}.xlsx`)
                       }
-                      title={r.boq_lines ? "Download the full BoQ (Excel)" : "No BoQ lines yet — run matching first"}
+                      title="Download the BoQ (Excel) — includes scope items even if nothing is matched yet"
                     >
                       ⬇ BoQ
                     </button>

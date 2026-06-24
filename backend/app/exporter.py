@@ -40,6 +40,20 @@ def _f(value) -> float:
     return float(value or 0)
 
 
+def _write_row(ws, row: int, values: list) -> None:
+    """Write one data row (8 cells) with the standard borders/alignment."""
+    for c, v in enumerate(values, start=1):
+        cell = ws.cell(row=row, column=c, value=v)
+        cell.border = _BORDER
+        cell.alignment = Alignment(
+            vertical="top",
+            wrap_text=c in (2, 3),
+            horizontal="right" if c in (3, 5, 6, 7) else "left",
+        )
+        if c in (6, 7):
+            cell.number_format = MONEY_FMT
+
+
 def build_boq_workbook(filename: str, groups: list) -> bytes:
     """groups: list of (scope_line, [boq_line, ...]) — only non-empty groups."""
     wb = Workbook()
@@ -105,6 +119,26 @@ def build_boq_workbook(filename: str, groups: list) -> bytes:
 
         section_total = 0.0
         for scope, lines in sec["groups"]:
+            if not lines:
+                # No item proposed for this scope line — render the work item from
+                # the scope as a blank, fillable row so a BoQ can still be exported
+                # (e.g. before matching, or when nothing matched).
+                _write_row(
+                    ws,
+                    row,
+                    [
+                        "—",
+                        scope.description or "",
+                        "",
+                        scope.unit or "",
+                        _f(scope.quantity) if scope.quantity is not None else None,
+                        None,  # unit price — left blank to fill
+                        None,  # total — left blank to fill
+                        "",
+                    ],
+                )
+                row += 1
+                continue
             for bl in lines:
                 # Use the concise catalog description; for an unmatched line fall
                 # back to the (summarized) task text from the scope line.
@@ -112,26 +146,20 @@ def build_boq_workbook(filename: str, groups: list) -> bytes:
                 brand_cell = " · ".join(
                     p for p in (bl.brand, getattr(bl, "subcontractor", None)) if p
                 )
-                values = [
-                    bl.item_code or "—",
-                    desc_en or "",
-                    bl.description_ar or "",
-                    bl.unit or "",
-                    _f(bl.quantity),
-                    _f(bl.unit_price),
-                    _f(bl.line_total),
-                    brand_cell,
-                ]
-                for c, v in enumerate(values, start=1):
-                    cell = ws.cell(row=row, column=c, value=v)
-                    cell.border = _BORDER
-                    cell.alignment = Alignment(
-                        vertical="top",
-                        wrap_text=c in (2, 3),
-                        horizontal="right" if c in (3, 5, 6, 7) else "left",
-                    )
-                    if c in (6, 7):
-                        cell.number_format = MONEY_FMT
+                _write_row(
+                    ws,
+                    row,
+                    [
+                        bl.item_code or "—",
+                        desc_en or "",
+                        bl.description_ar or "",
+                        bl.unit or "",
+                        _f(bl.quantity),
+                        _f(bl.unit_price),
+                        _f(bl.line_total),
+                        brand_cell,
+                    ],
+                )
                 section_total += _f(bl.line_total)
                 row += 1
 
