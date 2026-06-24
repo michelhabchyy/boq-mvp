@@ -238,6 +238,7 @@ class DashTotals(BaseModel):
     rfps: int = 0
     boq_lines: int = 0
     subcontractors: int = 0
+    catalog_items: int = 0
     total_value: float = 0
 
 

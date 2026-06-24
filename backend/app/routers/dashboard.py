@@ -161,10 +161,14 @@ def company_dashboard(db: Session = Depends(get_db), cid: int = Depends(current_
             )
         )
 
+    catalog_items = db.execute(
+        select(func.count(CatalogItem.id)).where(CatalogItem.company_id == cid)
+    ).scalar_one()
     totals = DashTotals(
         rfps=len(docs),
         boq_lines=sum(c for c, _ in boq_by_rfp.values()),
         subcontractors=len(subs),
+        catalog_items=catalog_items,
         total_value=sum(t for _, t in boq_by_rfp.values()),
     )
     return CompanyDashboardOut(totals=totals, rfps=rfps, subcontractors=dash_subs)
