@@ -20,7 +20,7 @@ export default function CompanyOverviewPage() {
 
   const canView = canAdmin || user?.role === "reviewer";
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (attempt = 0) => {
     try {
       const [dash, use, hist] = await Promise.all([
         api.get("/dashboard"),
@@ -30,8 +30,21 @@ export default function CompanyOverviewPage() {
       setData(dash);
       setUsage(use);
       setHistory(hist);
+      setError(null);
     } catch (e) {
-      setError(String(e.message || e));
+      const msg = String(e.message || e);
+      // The free-tier backend can be asleep; the first calls fail while it wakes.
+      // Retry a few times with backoff before surfacing an error.
+      if (/failed to fetch|networkerror|load failed/i.test(msg) && attempt < 3) {
+        setError("Connecting to the server… (it may be waking up)");
+        setTimeout(() => load(attempt + 1), 1500 * (attempt + 1));
+        return;
+      }
+      setError(
+        /failed to fetch/i.test(msg)
+          ? "Couldn't reach the server. It may be waking up — please refresh in a few seconds."
+          : msg
+      );
     }
   }, []);
 
