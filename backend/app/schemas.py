@@ -206,6 +206,47 @@ class CatalogItemOut(BaseModel):
     subcontractor_id: int | None = None
 
 
+class DashSubRFP(BaseModel):
+    rfp_id: int
+    filename: str
+    boq_lines: int = 0
+    total_value: float = 0
+
+
+class DashSub(BaseModel):
+    id: int | None = None  # None = the contractor's own (non-subcontractor) items
+    name: str
+    trade: str | None = None
+    catalog_items: int = 0
+    boq_lines: int = 0
+    total_value: float = 0
+    rfps: list[DashSubRFP] = []
+
+
+class DashRFP(BaseModel):
+    id: int
+    filename: str
+    status: str
+    created_at: datetime
+    scope_lines: int = 0
+    boq_lines: int = 0
+    total_value: float = 0
+    subcontractors: list[str] = []
+
+
+class DashTotals(BaseModel):
+    rfps: int = 0
+    boq_lines: int = 0
+    subcontractors: int = 0
+    total_value: float = 0
+
+
+class CompanyDashboardOut(BaseModel):
+    totals: DashTotals
+    rfps: list[DashRFP] = []
+    subcontractors: list[DashSub] = []
+
+
 class ItemAuditOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

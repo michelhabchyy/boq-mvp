@@ -163,6 +163,7 @@ function TopBar({ user, pathname, acting }) {
     { href: "/dashboard", label: "Dashboard", show: isOwner && !ownerActing },
     { href: "/companies", label: "Companies", show: isOwner && !ownerActing },
     { href: "/plans", label: "Plans", show: isOwner && !ownerActing },
+    { href: "/overview", label: "Dashboard", show: role === "reviewer" || adminMenu },
     { href: "/", label: "RFPs", show: role === "reviewer" || adminMenu },
     { href: "/catalog", label: "Catalog", show: adminMenu },
     { href: "/subcontractors", label: "Subcontractors", show: adminMenu },

@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from ..auth import current_company_id
 from ..db import get_db
 from ..exporter import build_boq_workbook
-from ..models import BoqLine, RFPDocument, RFPLine
+from ..models import BoqLine, RFPDocument, RFPLine, Subcontractor
 
 router = APIRouter(prefix="/output", tags=["output"])
 
@@ -21,6 +21,9 @@ def export_boq(
     rfp_id: int,
     include_unapproved: bool = Query(
         False, description="Include lines that haven't been approved yet"
+    ),
+    subcontractor_id: int | None = Query(
+        None, description="Export only the BoQ lines awarded to this subcontractor"
     ),
     db: Session = Depends(get_db),
     cid: int = Depends(current_company_id),
@@ -42,12 +45,19 @@ def export_boq(
     boq_q = select(BoqLine).where(BoqLine.rfp_id == rfp_id, BoqLine.company_id == cid)
     if not include_unapproved:
         boq_q = boq_q.where(BoqLine.approved.is_(True))
+    sub_name = None
+    if subcontractor_id is not None:
+        sub = db.get(Subcontractor, subcontractor_id)
+        if sub is None or sub.company_id != cid:
+            raise HTTPException(404, f"Subcontractor {subcontractor_id} not found")
+        sub_name = sub.name
+        boq_q = boq_q.where(BoqLine.subcontractor == sub_name)
     boq_lines = db.execute(boq_q).scalars().all()
 
     if not boq_lines:
         raise HTTPException(
             status_code=400,
-            detail="No approved BoQ lines to export. Approve lines first, "
+            detail="No BoQ lines to export for this selection. Approve lines first, "
             "or pass ?include_unapproved=true.",
         )
 
@@ -60,7 +70,10 @@ def export_boq(
     content = build_boq_workbook(doc.filename, groups)
 
     safe = re.sub(r"[^A-Za-z0-9_.-]", "_", doc.filename.rsplit(".", 1)[0]) or "boq"
-    fname = f"BoQ_{rfp_id}_{safe}.xlsx"
+    sub_tag = ""
+    if sub_name:
+        sub_tag = "_" + (re.sub(r"[^A-Za-z0-9_.-]", "_", sub_name) or "sub")
+    fname = f"BoQ_{rfp_id}_{safe}{sub_tag}.xlsx"
     return Response(
         content=content,
         media_type=XLSX_MIME,
