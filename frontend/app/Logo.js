@@ -1,88 +1,126 @@
 // Taqdeer (تقدير) brand mark.
 //
-// Icon story: three ascending strokes (a messy scope becoming ordered, priced
-// quantities) traced by a rising green line that ticks up to a confidence point
-// — estimation resolving into an approved, confident BoQ.
+// Icon: two brackets [ ] frame the priced line items (a BoQ is structured,
+// quantified), with a green check = the human approval / confidence at the core.
 // Palette: petrol teal (trust/precision) + confident green (approved/score).
 
 export const BRAND = {
-  teal: "#0E5F63",
-  tealSoft: "#5FC9C2",
-  green: "#27C08D",
-  ink: "#EAF6F4",
+  teal: "#0E6E6E",
+  green: "#2FB573",
+  tag: "#7a8888",
 };
 
-export function LogoMark({ size = 30, rounded = true }) {
+export function LogoMark({ size = 30 }) {
   return (
     <svg
       width={size}
       height={size}
-      viewBox="0 0 48 48"
+      viewBox="0 0 56 56"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       role="img"
       aria-label="Taqdeer"
       style={{ display: "block", flexShrink: 0 }}
     >
-      <rect width="48" height="48" rx={rounded ? 11 : 0} fill={BRAND.teal} />
-      {/* ascending quantities — chaos becoming ordered line items */}
-      <g fill={BRAND.ink}>
-        <rect x="11" y="29" width="5" height="8" rx="2" />
-        <rect x="18.5" y="24" width="5" height="13" rx="2" />
-        <rect x="26" y="19" width="5" height="18" rx="2" />
-      </g>
-      {/* rising estimate line that ticks up into a confidence point */}
-      <path
-        d="M13.5 29 L21 24 L28.5 19 L38 12"
-        stroke={BRAND.green}
-        strokeWidth="3"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <circle cx="38" cy="12" r="2.4" fill={BRAND.green} />
+      <rect x="4" y="4" width="48" height="48" rx="8" fill={BRAND.teal} />
+      {/* brackets — framing / quantifying the line items */}
+      <path d="M18 14 L14 14 L14 42 L18 42" fill="none" stroke="#ffffff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M38 14 L42 14 L42 42 L38 42" fill="none" stroke="#ffffff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+      {/* approval / confidence */}
+      <path d="M23 30 L27 35 L35 23" fill="none" stroke={BRAND.green} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
 
 /**
- * Full lockup: mark + bilingual wordmark.
- * tone="light"  -> for dark backgrounds (top bar): white Latin, soft-teal Arabic
- * tone="dark"   -> for light backgrounds (login):  ink Latin, teal Arabic
+ * Concept 4 — the process mark: messy input (muted-slate strokes) is
+ * transformed (teal arrow) into ordered, priced line items, the last of which
+ * is approved (confidence green). Used as a branding graphic on pages with room.
  */
-export function Logo({ size = 30, tone = "light", showArabic = true, gap = 11 }) {
-  const latin = tone === "light" ? "#FFFFFF" : "var(--text)";
-  const arabic = tone === "light" ? BRAND.tealSoft : BRAND.teal;
+export function ProcessMark({ width = 200 }) {
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap }}>
-      <LogoMark size={size} />
-      <span style={{ display: "inline-flex", alignItems: "baseline", gap: 8 }}>
+    <svg
+      width={width}
+      height={(width * 90) / 160}
+      viewBox="0 0 160 90"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      role="img"
+      aria-label="From scope to approved BoQ"
+      style={{ display: "block" }}
+    >
+      {/* chaotic scope input */}
+      <line x1="14" y1="28" x2="40" y2="23" stroke="#9CB8B8" strokeWidth="4" strokeLinecap="round" />
+      <line x1="14" y1="44" x2="36" y2="50" stroke="#9CB8B8" strokeWidth="4" strokeLinecap="round" />
+      <line x1="14" y1="60" x2="42" y2="55" stroke="#9CB8B8" strokeWidth="4" strokeLinecap="round" />
+      <line x1="14" y1="76" x2="34" y2="69" stroke="#9CB8B8" strokeWidth="4" strokeLinecap="round" />
+      {/* transform */}
+      <path d="M62 49 L86 49" stroke="#0E6E6E" strokeWidth="3.5" strokeLinecap="round" />
+      <path d="M81 44 L88 49 L81 54" fill="none" stroke="#0E6E6E" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+      {/* ordered, priced BoQ — last line approved */}
+      <rect x="108" y="22" width="38" height="7" rx="3.5" fill="#0E6E6E" />
+      <rect x="108" y="38" width="38" height="7" rx="3.5" fill="#0E6E6E" />
+      <rect x="108" y="54" width="38" height="7" rx="3.5" fill="#0E6E6E" />
+      <rect x="108" y="70" width="38" height="7" rx="3.5" fill="#2FB573" />
+    </svg>
+  );
+}
+
+/**
+ * Full lockup: mark + bilingual wordmark (+ optional tagline).
+ * tone="dark"  -> light backgrounds (login):   teal Latin + Arabic, grey tag
+ * tone="light" -> dark backgrounds (top bar):  white Latin, soft-teal Arabic
+ */
+export function Logo({ size = 30, tone = "light", showArabic = true, showTag = false }) {
+  const name = tone === "light" ? "#FFFFFF" : BRAND.teal;
+  const tagColor = tone === "light" ? "rgba(255,255,255,0.6)" : BRAND.tag;
+  const arabic = tone === "light" ? "#7FD4CF" : BRAND.teal;
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: Math.round(size * 0.25) }}>
+      <span style={{ display: "inline-flex", alignItems: "center", gap: Math.round(size * 0.29) }}>
+        <LogoMark size={size} />
+        <span style={{ display: "flex", flexDirection: "column", lineHeight: 1 }}>
+          <span
+            style={{
+              fontSize: Math.round(size * 0.68),
+              fontWeight: 600,
+              color: name,
+              letterSpacing: "-0.5px",
+              textTransform: "none",
+            }}
+          >
+            Taqdeer
+          </span>
+          {showTag && (
+            <span
+              style={{
+                fontSize: Math.max(10, Math.round(size * 0.2)),
+                color: tagColor,
+                marginTop: 4,
+                letterSpacing: "0.2px",
+                textTransform: "none",
+              }}
+            >
+              estimating intelligence
+            </span>
+          )}
+        </span>
+      </span>
+      {showArabic && (
         <span
+          lang="ar"
+          dir="rtl"
           style={{
-            fontWeight: 800,
-            fontSize: Math.round(size * 0.62),
-            letterSpacing: "-0.012em",
-            textTransform: "none",
-            color: latin,
+            fontSize: Math.round(size * 0.74),
+            fontWeight: 600,
+            color: arabic,
+            fontFamily: "var(--font-ar)",
             lineHeight: 1,
           }}
         >
-          Taqdeer
+          تقدير
         </span>
-        {showArabic && (
-          <span
-            lang="ar"
-            dir="rtl"
-            style={{
-              fontWeight: 700,
-              fontSize: Math.round(size * 0.58),
-              color: arabic,
-              lineHeight: 1,
-            }}
-          >
-            تقدير
-          </span>
-        )}
-      </span>
+      )}
     </span>
   );
 }

@@ -5,40 +5,48 @@
    ============================================================ */
 
 :root {
-  /* surfaces */
-  --bg: #e9edf2;
+  /* ── Taqdeer palette (source of truth) ──
+     Primary teal #0E6E6E · Deep teal #0A4F4F · Confidence green #2FB573
+     Muted slate #9CB8B8 · Surface #F7FAF9 · Ink #1A2424 */
+
+  /* surfaces (teal-tinted neutrals) */
+  --bg: #f7faf9;
   --surface: #ffffff;
-  --surface-2: #f6f8fa;
-  --surface-3: #eef2f6;
+  --surface-2: #eef5f4;
+  --surface-3: #e3edec;
 
   /* borders */
-  --border: #d3dae3;
-  --border-strong: #b3bdc9;
+  --border: #dbe7e5;
+  --border-strong: #9cb8b8; /* muted slate */
 
   /* text */
-  --text: #14202e;
-  --text-muted: #5b6b7c;
-  --text-subtle: #8a98a8;
+  --text: #1a2424; /* ink */
+  --text-muted: #546664;
+  --text-subtle: #88a1a0;
 
-  /* amber accent (construction) */
-  --accent: #d97706;
-  --accent-hover: #b45309;
-  --accent-soft: #fef3c7;
-  --accent-text: #92400e;
+  /* primary teal accent */
+  --accent: #0e6e6e;
+  --accent-hover: #0a4f4f; /* deep teal */
+  --accent-soft: #dbeded;
+  --accent-text: #0a4f4f;
+
+  /* confidence green (brand accent for "approved") */
+  --confidence: #2fb573;
 
   /* semantic */
-  --success: #15803d;
-  --success-soft: #dcfce7;
-  --danger: #b91c1c;
-  --danger-soft: #fee2e2;
-  --warn: #b45309;
-  --warn-soft: #fef3c7;
-  --info: #1d4ed8;
+  --success: #1b9a60; /* readable green for fills/text */
+  --success-soft: #e2f4ea;
+  --danger: #b3261e; /* reserved for true errors / destructive only */
+  --danger-soft: #fbe6e4;
+  --warn: #0e6e6e;
+  --warn-soft: #dbeded;
+  --info: #0e6e6e;
 
   --radius: 5px;
   --radius-sm: 4px;
-  --font: "Segoe UI", system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
-  --mono: "SF Mono", "Cascadia Mono", Consolas, "Roboto Mono", monospace;
+  --font: "IBM Plex Sans", "Segoe UI", system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
+  --font-ar: "IBM Plex Sans Arabic", "IBM Plex Sans", "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", "SF Mono", Consolas, "Roboto Mono", monospace;
 }
 
 * {
@@ -75,7 +83,7 @@ a:hover {
   gap: 24px;
   height: 52px;
   padding: 0 22px;
-  background: #14202e;
+  background: #0a4f4f;
   border-bottom: 3px solid var(--accent);
   color: #fff;
   position: sticky;
@@ -88,7 +96,7 @@ a:hover {
   gap: 9px;
   font-weight: 700;
   letter-spacing: 0.12em;
-  text-transform: uppercase;
+  text-transform: none;
   font-size: 13px;
 }
 .topbar .brand .mark {
@@ -108,7 +116,7 @@ a:hover {
   padding: 6px 12px;
   border-radius: var(--radius-sm);
   font-size: 12px;
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 0.06em;
   font-weight: 600;
 }
@@ -140,7 +148,7 @@ a:hover {
   font-size: 13px;
 }
 .eyebrow {
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 0.1em;
   font-size: 11px;
   font-weight: 700;
@@ -154,7 +162,7 @@ a:hover {
 }
 .crumb {
   font-size: 12px;
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 0.06em;
   font-weight: 600;
 }
@@ -179,7 +187,7 @@ a:hover {
 .panel-head h2 {
   margin: 0;
   font-size: 12px;
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 0.08em;
   font-weight: 700;
   color: var(--text-muted);
@@ -202,7 +210,7 @@ a:hover {
   background: var(--surface);
   color: var(--text);
   cursor: pointer;
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 0.04em;
   line-height: 1.1;
   white-space: nowrap;
@@ -302,7 +310,7 @@ input[type="file"] {
   text-align: left;
   padding: 8px 10px;
   font-size: 10.5px;
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 0.07em;
   font-weight: 700;
   color: var(--text-muted);
@@ -356,7 +364,7 @@ input[type="file"] {
 .badge-amber {
   background: var(--warn-soft);
   color: var(--warn);
-  border-color: #fde68a;
+  border-color: #bcdedd;
 }
 .badge-red {
   background: var(--danger-soft);
@@ -371,7 +379,7 @@ input[type="file"] {
 .tag {
   display: inline-block;
   font-size: 11px;
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 0.05em;
   color: var(--text-subtle);
   font-weight: 600;
@@ -395,7 +403,7 @@ input[type="file"] {
 }
 .stat .k {
   font-size: 10px;
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 0.08em;
   color: var(--text-subtle);
   font-weight: 700;
@@ -511,7 +519,7 @@ input[type="file"] {
   gap: 12px;
   padding: 10px 14px;
   margin-bottom: 8px;
-  background: #14202e;
+  background: #0a4f4f;
   color: #fff;
   border-radius: var(--radius);
   font-size: 14px;
@@ -548,7 +556,7 @@ input[type="file"] {
 }
 .bigstat .k {
   font-size: 10.5px;
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 0.08em;
   font-weight: 700;
   color: var(--text-subtle);
@@ -598,7 +606,7 @@ input[type="file"] {
 .field label {
   display: block;
   font-size: 11px;
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 0.07em;
   font-weight: 700;
   color: var(--text-muted);
@@ -615,7 +623,7 @@ input[type="file"] {
 }
 .userchip .role {
   font-size: 9.5px;
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 0.07em;
   font-weight: 700;
   padding: 2px 6px;
@@ -678,7 +686,7 @@ input[type="file"] {
 /* ---------- Form section label (grouped fields) ---------- */
 .form-section-label {
   font-size: 11px;
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 0.06em;
   font-weight: 700;
   color: var(--text-subtle);

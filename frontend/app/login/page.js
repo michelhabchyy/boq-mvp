@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "../../lib/api";
-import { Logo } from "../Logo";
+import { Logo, ProcessMark } from "../Logo";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -29,12 +29,23 @@ export default function LoginPage() {
   return (
     <div className="auth-wrap">
       <form className="auth-card" onSubmit={submit}>
-        <div style={{ marginBottom: 18 }}>
-          <Logo size={38} tone="dark" />
+        <div style={{ marginBottom: 16 }}>
+          <Logo size={46} tone="dark" showTag />
+        </div>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            padding: "14px 0 18px",
+            marginBottom: 18,
+            borderBottom: "1px solid var(--border)",
+          }}
+        >
+          <ProcessMark width={210} />
         </div>
         <h1>Sign in</h1>
         <p className="muted" style={{ margin: "2px 0 4px", fontSize: 12 }}>
-          Bilingual estimation &amp; BoQ automation. Use the credentials provided to your company.
+          Use the credentials provided to your company.
         </p>
 
         {error && <div className="alert">{error}</div>}
