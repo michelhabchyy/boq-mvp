@@ -10,6 +10,7 @@ import {
   setActingCompany as persistActingCompany,
   clearActingCompany,
 } from "../lib/api";
+import { Logo } from "./Logo";
 
 const AuthContext = createContext({ user: null, loading: true });
 export const useAuth = () => useContext(AuthContext);
@@ -182,8 +183,7 @@ function TopBar({ user, pathname, acting }) {
   return (
     <header className="topbar">
       <Link className="brand" href={isOwner && !ownerActing ? "/dashboard" : "/"} style={{ color: "#fff" }}>
-        <span className="mark" />
-        BoQ Automation
+        <Logo size={28} tone="light" />
       </Link>
       <nav className="nav">
         {nav.map((n) => (

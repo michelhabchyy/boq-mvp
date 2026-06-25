@@ -2,8 +2,8 @@ import "./globals.css";
 import AppChrome from "./AppChrome";
 
 export const metadata = {
-  title: "BoQ Automation",
-  description: "Bilingual (AR/EN) BoQ automation MVP",
+  title: "Taqdeer · تقدير",
+  description: "Taqdeer — bilingual (AR/EN) estimation & BoQ automation",
 };
 
 export default function RootLayout({ children }) {

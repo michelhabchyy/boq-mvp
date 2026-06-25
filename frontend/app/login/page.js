@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "../../lib/api";
+import { Logo } from "../Logo";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -28,10 +29,12 @@ export default function LoginPage() {
   return (
     <div className="auth-wrap">
       <form className="auth-card" onSubmit={submit}>
-        <div className="eyebrow">BoQ Automation</div>
+        <div style={{ marginBottom: 18 }}>
+          <Logo size={38} tone="dark" />
+        </div>
         <h1>Sign in</h1>
         <p className="muted" style={{ margin: "2px 0 4px", fontSize: 12 }}>
-          Use the credentials provided to your company.
+          Bilingual estimation &amp; BoQ automation. Use the credentials provided to your company.
         </p>
 
         {error && <div className="alert">{error}</div>}
