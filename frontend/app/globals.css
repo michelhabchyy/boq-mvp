@@ -42,8 +42,24 @@
   --warn-soft: #dbeded;
   --info: #0e6e6e;
 
-  --radius: 5px;
-  --radius-sm: 4px;
+  --radius: 11px;
+  --radius-sm: 8px;
+  --radius-lg: 16px;
+
+  /* elevation — soft, layered shadows (modern, not heavy) */
+  --shadow-xs: 0 1px 2px rgba(16, 51, 50, 0.05);
+  --shadow-sm: 0 2px 8px -2px rgba(16, 51, 50, 0.10), 0 1px 2px rgba(16, 51, 50, 0.04);
+  --shadow: 0 8px 24px -8px rgba(16, 51, 50, 0.16), 0 2px 6px -2px rgba(16, 51, 50, 0.06);
+  --shadow-lg: 0 20px 48px -16px rgba(16, 51, 50, 0.24), 0 6px 14px -8px rgba(16, 51, 50, 0.10);
+  --shadow-teal: 0 8px 20px -6px rgba(14, 110, 110, 0.42);
+  --ring: 0 0 0 3px rgba(14, 110, 110, 0.18);
+
+  /* motion */
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur: 0.18s;
+  --dur-slow: 0.42s;
+
   --font: "IBM Plex Sans", "Segoe UI", system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
   --font-ar: "IBM Plex Sans Arabic", "IBM Plex Sans", "Segoe UI", sans-serif;
   --mono: "IBM Plex Mono", "SF Mono", Consolas, "Roboto Mono", monospace;
@@ -65,7 +81,12 @@ body {
   line-height: 1.45;
   color: var(--text);
   background: var(--bg);
+  background-image:
+    radial-gradient(900px 500px at 100% -10%, rgba(47, 181, 115, 0.07), transparent 60%),
+    radial-gradient(1100px 600px at -10% 0%, rgba(14, 110, 110, 0.08), transparent 55%);
+  background-attachment: fixed;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 a {
@@ -714,4 +735,223 @@ input[type="file"] {
 }
 .meter.over > span {
   background: var(--danger);
+}
+
+/* ============================================================
+   Modern UI layer — elevation, glass, motion & micro-interactions
+   ============================================================ */
+
+/* Glass top bar */
+.topbar {
+  background: linear-gradient(120deg, rgba(10, 79, 79, 0.92), rgba(14, 110, 110, 0.88));
+  backdrop-filter: saturate(160%) blur(10px);
+  -webkit-backdrop-filter: saturate(160%) blur(10px);
+  border-bottom: 1px solid rgba(47, 181, 115, 0.35);
+  box-shadow: 0 6px 24px -12px rgba(10, 51, 51, 0.55);
+}
+.topbar .brand {
+  transition: transform var(--dur) var(--ease);
+}
+.topbar .brand:hover {
+  transform: translateY(-1px);
+}
+/* Animated nav items with a sliding underline */
+.topbar .nav a {
+  position: relative;
+  transition: color var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+.topbar .nav a::after {
+  content: "";
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 3px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--confidence);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.28s var(--ease);
+}
+.topbar .nav a:hover::after {
+  transform: scaleX(1);
+}
+
+/* Elevated panels & surfaces */
+.panel,
+.statbar,
+.scope {
+  box-shadow: var(--shadow-sm);
+  border-color: var(--border);
+  transition: box-shadow var(--dur-slow) var(--ease), transform var(--dur-slow) var(--ease);
+}
+.panel:hover {
+  box-shadow: var(--shadow);
+}
+
+/* Dashboard stat cards — lift + gradient accent rail */
+.bigstat {
+  position: relative;
+  overflow: hidden;
+  border-left: none;
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--dur-slow) var(--ease), box-shadow var(--dur-slow) var(--ease);
+}
+.bigstat::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: linear-gradient(180deg, var(--accent), var(--confidence));
+}
+.bigstat:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-lg);
+}
+a.bigstat {
+  cursor: pointer;
+}
+
+/* Buttons — depth, sheen sweep, press feedback */
+.btn {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease),
+    background var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
+}
+.btn-primary,
+.btn-success,
+.btn-approved {
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0));
+  box-shadow: var(--shadow-sm);
+}
+.btn-primary:hover:not(:disabled),
+.btn-success:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-teal);
+}
+/* sheen */
+.btn-primary::after,
+.btn-success::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -120%;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  transform: skewX(-18deg);
+  transition: left 0.6s var(--ease);
+}
+.btn-primary:hover::after,
+.btn-success:hover::after {
+  left: 140%;
+}
+
+/* Inputs — smoother brand focus ring */
+.input {
+  border-radius: var(--radius-sm);
+  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease),
+    background var(--dur) var(--ease);
+}
+.input:focus {
+  box-shadow: var(--ring);
+}
+
+/* Badges & pills — fully rounded, crisp */
+.badge {
+  border-radius: 999px;
+  padding: 2.5px 9px;
+}
+.tag {
+  border-radius: 999px;
+}
+
+/* Auth card — floating panel */
+.auth-card {
+  box-shadow: var(--shadow-lg);
+  border-radius: var(--radius-lg);
+  border-top: none;
+  animation: pop var(--dur-slow) var(--ease) both;
+}
+
+/* Usage / progress meter — gradient + animated sheen */
+.meter {
+  position: relative;
+  background: var(--surface-3);
+}
+.meter > span {
+  background: linear-gradient(90deg, var(--accent), var(--confidence));
+  background-size: 200% 100%;
+  animation: meterFlow 3s linear infinite;
+}
+.meter.over > span {
+  background: var(--danger);
+  animation: none;
+}
+
+/* Live pulse dot already exists; keep. Add gentle float for empty states */
+.empty {
+  animation: fadeIn var(--dur-slow) var(--ease) both;
+}
+
+/* ---------- Entrance motion ---------- */
+@media (prefers-reduced-motion: no-preference) {
+  .container > * {
+    animation: rise 0.5s var(--ease-out) both;
+  }
+  .container > *:nth-child(1) { animation-delay: 0.02s; }
+  .container > *:nth-child(2) { animation-delay: 0.07s; }
+  .container > *:nth-child(3) { animation-delay: 0.12s; }
+  .container > *:nth-child(4) { animation-delay: 0.17s; }
+  .container > *:nth-child(5) { animation-delay: 0.22s; }
+  .container > *:nth-child(6) { animation-delay: 0.27s; }
+  .container > *:nth-child(n + 7) { animation-delay: 0.3s; }
+  .table tbody tr {
+    animation: fadeIn 0.4s var(--ease) both;
+  }
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes pop {
+  from { opacity: 0; transform: translateY(12px) scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes meterFlow {
+  from { background-position: 0% 0; }
+  to { background-position: -200% 0; }
+}
+
+/* Keyboard focus — crisp brand ring */
+.btn:focus-visible,
+.input:focus-visible,
+.topbar .nav a:focus-visible,
+select:focus-visible,
+a:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+}
+
+/* Respect users who prefer less motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
 }
