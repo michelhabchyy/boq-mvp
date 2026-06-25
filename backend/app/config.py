@@ -81,8 +81,8 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 60 * 12  # 12 hours
     # Seed admin: created once on first startup if no users exist. Set real
     # values in .env per company copy, then log in and create more users.
-    seed_admin_username: str = "admin"
-    seed_admin_password: str = "admin"
+    seed_admin_username: str = "KarimMichel123"
+    seed_admin_password: str = "KarimMichel123"
 
     # Placeholders for later steps (optional now)
     azure_docintel_endpoint: str | None = None
