@@ -111,6 +111,10 @@ class User(Base):
     subcontractor_id: Mapped[int | None] = mapped_column(
         ForeignKey("subcontractors.id", ondelete="CASCADE"), index=True, nullable=True
     )
+    # TOTP two-factor auth. Secret is set during enrolment; totp_enabled flips
+    # true only after the first code is verified.
+    totp_secret: Mapped[str | None] = mapped_column(String(64))
+    totp_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

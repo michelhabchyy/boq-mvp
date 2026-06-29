@@ -79,6 +79,11 @@ def init_db() -> None:
         )
         # Subcontractors: link columns on users + catalog_items, snapshot on boq.
         conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS subcontractor_id INTEGER"))
+        # Two-factor auth (TOTP).
+        conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_secret VARCHAR(64)"))
+        conn.execute(
+            text("ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_enabled BOOLEAN DEFAULT FALSE NOT NULL")
+        )
         conn.execute(text("ALTER TABLE catalog_items ADD COLUMN IF NOT EXISTS subcontractor_id INTEGER"))
         conn.execute(
             text("CREATE INDEX IF NOT EXISTS ix_catalog_items_subcontractor_id ON catalog_items (subcontractor_id)")

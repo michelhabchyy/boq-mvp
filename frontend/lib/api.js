@@ -136,15 +136,16 @@ export const api = {
   },
 
   // --- auth helpers ---
-  async login(username, password) {
+  async login(username, password, otp) {
     const res = await fetch(`${BASE}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({ username, password, otp: otp || undefined }),
     });
     const data = await handle(res);
+    if (data.mfa_required) return { mfaRequired: true };
     setToken(data.access_token);
-    return data.user;
+    return { user: data.user };
   },
   logout() {
     clearToken();

@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict
 class LoginRequest(BaseModel):
     username: str
     password: str
+    otp: str | None = None  # TOTP code, when the account has 2FA enabled
 
 
 class UserOut(BaseModel):
@@ -20,6 +21,7 @@ class UserOut(BaseModel):
     is_active: bool
     company_id: int | None
     subcontractor_id: int | None = None
+    totp_enabled: bool = False
 
 
 class SubcontractorOut(BaseModel):
@@ -168,6 +170,30 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: UserOut
+
+
+class LoginResponse(BaseModel):
+    """Either a completed login (token + user) or a signal that a 2FA code is
+    needed (mfa_required=True, no token issued yet)."""
+
+    access_token: str | None = None
+    token_type: str = "bearer"
+    user: UserOut | None = None
+    mfa_required: bool = False
+
+
+class TwoFASetupOut(BaseModel):
+    secret: str
+    otpauth_uri: str
+    qr_svg: str
+
+
+class TwoFACode(BaseModel):
+    code: str
+
+
+class TwoFAStatus(BaseModel):
+    enabled: bool
 
 
 class UserCreate(BaseModel):

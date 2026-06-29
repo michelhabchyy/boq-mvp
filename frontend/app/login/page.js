@@ -9,6 +9,8 @@ export default function LoginPage() {
   const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [otp, setOtp] = useState("");
+  const [mfa, setMfa] = useState(false);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
 
@@ -17,7 +19,12 @@ export default function LoginPage() {
     setBusy(true);
     setError(null);
     try {
-      await api.login(username, password);
+      const res = await api.login(username, password, mfa ? otp : undefined);
+      if (res.mfaRequired) {
+        setMfa(true);
+        setBusy(false);
+        return; // show the 2FA code field and wait for it
+      }
       router.push("/");
     } catch (err) {
       setError(String(err.message || err));
@@ -68,14 +75,32 @@ export default function LoginPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="current-password"
+            disabled={mfa}
           />
         </div>
+        {mfa && (
+          <div className="field">
+            <label>Authentication code</label>
+            <input
+              className="input"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              placeholder="6-digit code"
+              value={otp}
+              autoFocus
+              onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+            />
+            <p className="muted" style={{ margin: "4px 0 0", fontSize: 11 }}>
+              Enter the code from your authenticator app.
+            </p>
+          </div>
+        )}
         <button
           className="btn btn-primary"
           style={{ width: "100%", justifyContent: "center", marginTop: 18 }}
-          disabled={busy || !username || !password}
+          disabled={busy || !username || !password || (mfa && otp.length < 6)}
         >
-          {busy ? "Signing in…" : "Sign in"}
+          {busy ? "Signing in…" : mfa ? "Verify & sign in" : "Sign in"}
         </button>
       </form>
     </div>

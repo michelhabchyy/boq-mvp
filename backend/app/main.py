@@ -73,10 +73,30 @@ app.add_middleware(
 )
 
 
+# Static security headers applied to every API response (the API serves JSON +
+# file downloads, so a tight default-src is safe). HSTS is added in production.
+_SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "no-referrer",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+    "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'; base-uri 'none'",
+}
+
+
+def _apply_security_headers(response) -> None:
+    for k, v in _SECURITY_HEADERS.items():
+        response.headers.setdefault(k, v)
+    if settings.app_env != "development":
+        response.headers.setdefault(
+            "Strict-Transport-Security", "max-age=63072000; includeSubDomains"
+        )
+
+
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
-    """Log each request's method, path, status and duration; log + surface any
-    unhandled exception (so errors are never silent in production)."""
+    """Log each request's method, path, status and duration; attach security
+    headers; log + surface any unhandled exception (errors never silent)."""
     start = time.perf_counter()
     try:
         response = await call_next(request)
@@ -87,6 +107,7 @@ async def log_requests(request: Request, call_next):
     ms = (time.perf_counter() - start) * 1000
     level = log.warning if response.status_code >= 500 else log.info
     level("%s %s -> %s (%.0fms)", request.method, request.url.path, response.status_code, ms)
+    _apply_security_headers(response)
     return response
 
 # auth/login is public; every other endpoint authenticates via its own
