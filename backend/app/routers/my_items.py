@@ -67,6 +67,8 @@ def _mine(db: Session, item_id: int, me: User) -> CatalogItem:
 @router.get("", response_model=list[CatalogItemOut])
 def list_my_items(
     q: str | None = Query(None),
+    limit: int = Query(500, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
     me: User = Depends(require_subcontractor),
 ):
@@ -78,7 +80,7 @@ def list_my_items(
     search = build_search_filter(q)
     if search is not None:
         stmt = stmt.where(search)
-    return db.execute(stmt).scalars().all()
+    return db.execute(stmt.limit(limit).offset(offset)).scalars().all()
 
 
 @router.post("", response_model=CatalogItemOut)

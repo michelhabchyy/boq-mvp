@@ -18,6 +18,7 @@ from ..db import SessionLocal, get_db
 from ..llm import get_matcher
 from ..models import Company, RFPDocument, RFPLine, User
 from ..observability import get_logger
+from ..uploads import read_upload_capped
 from ..rfp_loader import extract_full_text, parse_rfp_file
 from ..usage import QuotaExceeded, over_limit, record_tokens
 from ..schemas import (
@@ -69,11 +70,11 @@ async def upload_rfp(
     cid: int = Depends(current_company_id),
     user: User = Depends(get_current_user),
 ):
-    content = await file.read()
+    content = await read_upload_capped(file)
     fname = file.filename or ""
     guidance = (description or "").strip()
     sample_fname = sample.filename if sample else ""
-    sample_content = await sample.read() if sample else None
+    sample_content = await read_upload_capped(sample) if sample else None
 
     if analyze:
         if _source_type(fname) == "file":
@@ -247,13 +248,20 @@ def _run_ai_analysis(
 
 
 @router.get("", response_model=list[RFPDocumentOut])
-def list_rfps(db: Session = Depends(get_db), cid: int = Depends(current_company_id)):
+def list_rfps(
+    limit: int = Query(200, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+    cid: int = Depends(current_company_id),
+):
     rows = db.execute(
         select(RFPDocument, func.count(RFPLine.id).label("line_count"))
         .outerjoin(RFPLine, RFPLine.rfp_id == RFPDocument.id)
         .where(RFPDocument.company_id == cid)
         .group_by(RFPDocument.id)
         .order_by(RFPDocument.created_at.desc())
+        .limit(limit)
+        .offset(offset)
     ).all()
     return [_document_out(doc, count) for doc, count in rows]
 

@@ -32,18 +32,15 @@ from ..auth import (
 from ..db import get_db
 from ..models import Company, Document, Subcontractor, User
 from ..schemas import DocumentOut
+from ..uploads import read_upload_capped
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
-MAX_BYTES = 25 * 1024 * 1024  # 25 MB per file
-
 
 async def _read_upload(file: UploadFile) -> bytes:
-    data = await file.read()
+    data = await read_upload_capped(file)  # caps memory + size (413 if too big)
     if not data:
         raise HTTPException(400, "The uploaded file is empty.")
-    if len(data) > MAX_BYTES:
-        raise HTTPException(413, "File too large (max 25 MB).")
     return data
 
 
@@ -113,13 +110,19 @@ async def upload_to_company(
 
 @router.get("/company/{company_id}", response_model=list[DocumentOut])
 def list_company_docs(
-    company_id: int, db: Session = Depends(get_db), owner: User = Depends(require_owner)
+    company_id: int,
+    limit: int = Query(200, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+    owner: User = Depends(require_owner),
 ):
     return (
         db.execute(
             select(Document)
             .where(Document.company_id == company_id, Document.subcontractor_id.is_(None))
             .order_by(Document.created_at.desc())
+            .limit(limit)
+            .offset(offset)
         )
         .scalars()
         .all()
@@ -127,13 +130,20 @@ def list_company_docs(
 
 
 @router.get("/inbox", response_model=list[DocumentOut])
-def company_inbox(db: Session = Depends(get_db), cid: int = Depends(current_company_id)):
+def company_inbox(
+    limit: int = Query(200, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+    cid: int = Depends(current_company_id),
+):
     """Documents the platform owner has shared with this company."""
     return (
         db.execute(
             select(Document)
             .where(Document.company_id == cid, Document.subcontractor_id.is_(None))
             .order_by(Document.created_at.desc())
+            .limit(limit)
+            .offset(offset)
         )
         .scalars()
         .all()
@@ -163,7 +173,11 @@ async def upload_to_sub(
 
 @router.get("/subcontractor/{sub_id}", response_model=list[DocumentOut])
 def list_sub_docs(
-    sub_id: int, db: Session = Depends(get_db), cid: int = Depends(current_company_id)
+    sub_id: int,
+    limit: int = Query(200, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+    cid: int = Depends(current_company_id),
 ):
     _owned_sub(db, sub_id, cid)
     return (
@@ -171,6 +185,8 @@ def list_sub_docs(
             select(Document)
             .where(Document.subcontractor_id == sub_id, Document.company_id == cid)
             .order_by(Document.created_at.desc())
+            .limit(limit)
+            .offset(offset)
         )
         .scalars()
         .all()
@@ -178,13 +194,20 @@ def list_sub_docs(
 
 
 @router.get("/my", response_model=list[DocumentOut])
-def my_docs(db: Session = Depends(get_db), me: User = Depends(require_subcontractor)):
+def my_docs(
+    limit: int = Query(200, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+    me: User = Depends(require_subcontractor),
+):
     """Documents this subcontractor's contractor has shared with them."""
     return (
         db.execute(
             select(Document)
             .where(Document.subcontractor_id == me.subcontractor_id)
             .order_by(Document.created_at.desc())
+            .limit(limit)
+            .offset(offset)
         )
         .scalars()
         .all()

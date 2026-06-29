@@ -2,7 +2,7 @@
 on a company via X-Company-Id. Company resolved by `admin_company_id`; the acting
 user is used only for self-protection (an admin can't lock themselves out)."""
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -17,13 +17,20 @@ COMPANY_ROLES = {"admin", "reviewer"}  # company admins cannot mint owners
 
 
 @router.get("", response_model=list[UserOut])
-def list_users(db: Session = Depends(get_db), cid: int = Depends(admin_company_id)):
+def list_users(
+    limit: int = Query(200, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+    cid: int = Depends(admin_company_id),
+):
     # Staff only — subcontractor logins are managed under /subcontractors.
     return (
         db.execute(
             select(User)
             .where(User.company_id == cid, User.subcontractor_id.is_(None))
             .order_by(User.username)
+            .limit(limit)
+            .offset(offset)
         )
         .scalars()
         .all()

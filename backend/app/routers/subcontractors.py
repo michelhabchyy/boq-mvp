@@ -2,7 +2,7 @@
 (via the X-Company-Id header). The company is resolved by `admin_company_id`.
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -29,12 +29,19 @@ def _owned_sub(db: Session, sub_id: int, cid: int) -> Subcontractor:
 
 
 @router.get("", response_model=list[SubcontractorOut])
-def list_subcontractors(db: Session = Depends(get_db), cid: int = Depends(admin_company_id)):
+def list_subcontractors(
+    limit: int = Query(200, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+    cid: int = Depends(admin_company_id),
+):
     subs = (
         db.execute(
             select(Subcontractor)
             .where(Subcontractor.company_id == cid)
             .order_by(Subcontractor.name)
+            .limit(limit)
+            .offset(offset)
         )
         .scalars()
         .all()

@@ -738,6 +738,68 @@ input[type="file"] {
 }
 
 /* ============================================================
+   Responsive / mobile
+   ============================================================ */
+@media (max-width: 760px) {
+  .container {
+    padding: 16px 13px 48px;
+  }
+
+  /* Dense data tables scroll horizontally instead of squashing unreadably. */
+  .table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Stat bar + panel head wrap rather than overflow. */
+  .statbar {
+    flex-wrap: wrap;
+  }
+  .statbar .actions {
+    width: 100%;
+    justify-content: flex-start;
+    padding: 10px 14px;
+    border-top: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .panel-head {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  /* Top bar: let the nav scroll sideways; declutter the user chip. */
+  .topbar {
+    gap: 12px;
+    padding: 0 12px;
+  }
+  .topbar .nav {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    min-width: 0;
+  }
+  .topbar .nav a {
+    white-space: nowrap;
+  }
+  .topbar .userchip .usagechip,
+  .topbar .userchip > span:not(.role) {
+    display: none;
+  }
+
+  .cards {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 460px) {
+  .cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ============================================================
    Modern UI layer — elevation, glass, motion & micro-interactions
    ============================================================ */
 

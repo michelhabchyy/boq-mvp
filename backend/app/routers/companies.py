@@ -4,7 +4,7 @@ The owner provisions a company together with its first admin user here. That
 admin then logs in and manages their own company's users + catalog + BoQs.
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -39,19 +39,25 @@ def _company_out(company: Company, user_count: int) -> CompanyOut:
     )
 
 
-def _with_counts(db: Session) -> list[CompanyOut]:
+def _with_counts(db: Session, limit: int = 500, offset: int = 0) -> list[CompanyOut]:
     rows = db.execute(
         select(Company, func.count(User.id))
         .outerjoin(User, User.company_id == Company.id)
         .group_by(Company.id)
         .order_by(Company.name)
+        .limit(limit)
+        .offset(offset)
     ).all()
     return [_company_out(c, n) for c, n in rows]
 
 
 @router.get("", response_model=list[CompanyOut])
-def list_companies(db: Session = Depends(get_db)):
-    return _with_counts(db)
+def list_companies(
+    limit: int = Query(500, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+):
+    return _with_counts(db, limit, offset)
 
 
 def _count_by_company(db: Session, model) -> dict[int, int]:

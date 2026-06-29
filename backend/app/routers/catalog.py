@@ -17,6 +17,7 @@ from ..item_utils import (
     summarize_changes,
 )
 from ..models import CatalogItem, Company, ItemAudit, User
+from ..uploads import read_upload_capped
 from ..schemas import (
     CatalogItemIn,
     CatalogItemOut,
@@ -106,7 +107,7 @@ async def upload_catalog(
     db: Session = Depends(get_db),
     cid: int = Depends(admin_company_id),
 ):
-    content = await file.read()
+    content = await read_upload_capped(file)
     try:
         parsed = parse_catalog_file(file.filename or "", content)
     except ValueError as e:

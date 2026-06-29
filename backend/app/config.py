@@ -36,6 +36,9 @@ class Settings(BaseSettings):
     login_max_attempts: int = 5
     login_window_seconds: int = 60
 
+    # Largest single file accepted by upload endpoints (RFP, catalog, documents).
+    max_upload_mb: int = 25
+
     # --- Observability ---
     # Root log level (DEBUG / INFO / WARNING / ERROR).
     log_level: str = "INFO"
