@@ -15,6 +15,7 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Integer,
+    LargeBinary,
     Numeric,
     String,
     Text,
@@ -167,6 +168,40 @@ class ItemAudit(Base):
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     username: Mapped[str | None] = mapped_column(String(160))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True, nullable=False
+    )
+
+
+class Document(Base):
+    """An official (signed) file shared along a relationship:
+
+      * subcontractor_id IS NULL  -> sent by the platform OWNER to the COMPANY
+      * subcontractor_id IS SET    -> sent by the COMPANY to that SUBCONTRACTOR
+
+    The recipient can list, preview and download; only the sender (or the owner)
+    may delete. File bytes live in the DB (BYTEA) so they persist on hosts with
+    an ephemeral filesystem.
+    """
+
+    __tablename__ = "documents"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    company_id: Mapped[int] = mapped_column(
+        ForeignKey("companies.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    subcontractor_id: Mapped[int | None] = mapped_column(
+        ForeignKey("subcontractors.id", ondelete="CASCADE"), index=True, nullable=True
+    )
+    title: Mapped[str | None] = mapped_column(String(300))
+    filename: Mapped[str] = mapped_column(String(400), nullable=False)
+    content_type: Mapped[str | None] = mapped_column(String(150))
+    size: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    data: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    uploaded_by_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    uploaded_by_name: Mapped[str | None] = mapped_column(String(160))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), index=True, nullable=False
     )

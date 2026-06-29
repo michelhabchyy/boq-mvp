@@ -248,6 +248,20 @@ class CompanyDashboardOut(BaseModel):
     subcontractors: list[DashSub] = []
 
 
+class DocumentOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    company_id: int
+    subcontractor_id: int | None = None
+    title: str | None = None
+    filename: str
+    content_type: str | None = None
+    size: int = 0
+    uploaded_by_name: str | None = None
+    created_at: datetime
+
+
 class ItemAuditOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

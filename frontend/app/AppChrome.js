@@ -44,10 +44,13 @@ export default function AppChrome({ children }) {
         const ownerArea =
           pathname?.startsWith("/dashboard") ||
           pathname?.startsWith("/companies") ||
-          pathname?.startsWith("/plans");
+          pathname?.startsWith("/plans") ||
+          pathname?.startsWith("/documents");
+        const subArea =
+          pathname?.startsWith("/my-items") || pathname?.startsWith("/documents");
         if (u.role === "owner" && !getActingCompany() && !ownerArea) {
           router.replace("/dashboard");
-        } else if (u.role === "subcontractor" && !pathname?.startsWith("/my-items")) {
+        } else if (u.role === "subcontractor" && !subArea) {
           router.replace("/my-items");
         }
       })
@@ -171,6 +174,7 @@ function TopBar({ user, pathname, acting }) {
     { href: "/users", label: "Users", show: adminMenu },
     { href: "/usage", label: "Usage", show: role === "reviewer" || adminMenu },
     { href: "/my-items", label: "My Items", show: isSub },
+    { href: "/documents", label: "Documents", show: true },
   ].filter((n) => n.show);
 
   // A company context exists (own company, or owner impersonating one) iff the

@@ -20,6 +20,7 @@ from .routers import (
     catalog,
     companies,
     dashboard,
+    documents,
     matching,
     my_items,
     output,
@@ -75,6 +76,7 @@ app.include_router(boq.router)
 app.include_router(output.router)
 app.include_router(usage.router)
 app.include_router(dashboard.router)
+app.include_router(documents.router)
 
 
 @app.get("/health")

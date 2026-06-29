@@ -118,6 +118,23 @@ export const api = {
     URL.revokeObjectURL(url);
   },
 
+  // Fetch a file (with auth) and open it in a new tab for preview.
+  async openInNewTab(path) {
+    const res = await fetch(`${BASE}${path}`, { headers: authHeaders() });
+    if (!res.ok) {
+      let detail;
+      try {
+        detail = (await res.json()).detail;
+      } catch {
+        detail = res.statusText;
+      }
+      throw new Error(typeof detail === "string" ? detail : "Could not open file");
+    }
+    const url = URL.createObjectURL(await res.blob());
+    window.open(url, "_blank", "noopener");
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  },
+
   // --- auth helpers ---
   async login(username, password) {
     const res = await fetch(`${BASE}/auth/login`, {
