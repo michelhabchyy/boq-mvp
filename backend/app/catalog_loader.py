@@ -35,7 +35,9 @@ HEADER_ALIASES: dict[str, set[str]] = {
     "notes": {"notes", "note", "remarks", "comment", "comments", "specs", "specification"},
 }
 
-REQUIRED_COLUMNS = {"item_code", "unit", "unit_cost"}
+# Only the price is mandatory. item_code is OPTIONAL — when a row omits it, the
+# system assigns a unique, never-reused code on import (same as manual adds).
+REQUIRED_COLUMNS = {"unit_cost"}
 NUMERIC_COLUMNS = {"unit_cost"}
 
 
@@ -124,8 +126,6 @@ def parse_catalog_file(filename: str, content: bytes) -> ParseResult:
             else:
                 record[canon] = cell or None
 
-        if not record["item_code"]:
-            errors.append("item_code is required")
         if not record["description_ar"] and not record["description_en"]:
             errors.append("at least one of description_ar / description_en is required")
         for col in NUMERIC_COLUMNS:
@@ -137,11 +137,15 @@ def parse_catalog_file(filename: str, content: bytes) -> ParseResult:
             continue
 
         code = record["item_code"]
-        if code in seen_codes:  # later duplicate wins, overwrite earlier
+        # De-dupe only rows that carry an explicit code; rows without one are all
+        # new (the importer assigns each a fresh code).
+        if code and code in seen_codes:  # later duplicate wins, overwrite earlier
             result.valid_rows[seen_codes[code]] = record
             result.duplicates_in_file += 1
-        else:
+        elif code:
             seen_codes[code] = len(result.valid_rows)
+            result.valid_rows.append(record)
+        else:
             result.valid_rows.append(record)
 
     return result

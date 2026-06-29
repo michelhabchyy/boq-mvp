@@ -167,3 +167,79 @@ def build_items_workbook(items: list[CatalogItem], title: str = "Catalog") -> by
     buf = BytesIO()
     wb.save(buf)
     return buf.getvalue()
+
+
+# Columns offered in the upload template. item_code is intentionally omitted —
+# the system assigns codes automatically. Only unit_cost is required.
+_TEMPLATE_COLUMNS = [
+    ("description_en", "description_en", 32),
+    ("description_ar", "description_ar", 32),
+    ("unit", "unit", 12),
+    ("count_unit", "count_unit", 12),
+    ("unit_cost", "unit_cost", 12),
+    ("brand", "brand", 16),
+    ("industry", "industry", 16),
+    ("category", "category", 16),
+    ("supplier", "supplier", 18),
+    ("model_number", "model_number", 16),
+    ("link", "link", 28),
+    ("notes", "notes", 26),
+]
+_TEMPLATE_EXAMPLES = [
+    {
+        "description_en": "LED panel light 60x60",
+        "description_ar": "لوحة إضاءة LED ٦٠×٦٠",
+        "unit": "Each",
+        "count_unit": "each",
+        "unit_cost": 42.5,
+        "brand": "Philips",
+        "industry": "Electrical",
+        "category": "Lighting",
+        "supplier": "Acme Supply",
+        "model_number": "RC065B",
+        "link": "https://example.com/datasheet.pdf",
+        "notes": "4000K, 36W (example row — replace or delete)",
+    },
+    {
+        "description_en": "Copper cable 3-core 2.5mm2",
+        "description_ar": "كابل نحاس ٣ قلوب ٢.٥ مم٢",
+        "unit": "m",
+        "count_unit": "roll",
+        "unit_cost": 4.7,
+        "brand": "Nexans",
+        "industry": "Electrical",
+        "category": "Cables",
+        "supplier": "Gulf Cables",
+        "model_number": "",
+        "link": "",
+        "notes": "example row — replace or delete",
+    },
+]
+
+
+def build_catalog_template() -> bytes:
+    """A ready-to-fill .xlsx: headers the importer accepts + two example rows.
+    Only `unit_cost` is mandatory; item codes are assigned automatically."""
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Catalog template"
+
+    for c, (_, header, width) in enumerate(_TEMPLATE_COLUMNS, start=1):
+        cell = ws.cell(row=1, column=c, value=header)
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.fill = _HEADER_FILL
+        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        ws.column_dimensions[get_column_letter(c)].width = width
+    ws.row_dimensions[1].height = 22
+
+    for r, example in enumerate(_TEMPLATE_EXAMPLES, start=2):
+        for c, (key, _, _) in enumerate(_TEMPLATE_COLUMNS, start=1):
+            cell = ws.cell(row=r, column=c, value=example.get(key))
+            cell.alignment = Alignment(vertical="top", wrap_text=key.startswith("description") or key == "notes")
+            if key == "unit_cost":
+                cell.number_format = "#,##0.00"
+
+    ws.freeze_panes = "A2"
+    buf = BytesIO()
+    wb.save(buf)
+    return buf.getvalue()

@@ -11,6 +11,7 @@ from ..config import settings
 from ..db import get_db
 from ..embeddings import build_embedding_text, get_embedder
 from ..item_utils import (
+    build_catalog_template,
     build_items_workbook,
     generate_item_code,
     log_item_change,
@@ -97,6 +98,17 @@ def _owned(db: Session, item_id: int, cid: int) -> CatalogItem:
     return item
 
 
+@router.get("/template.xlsx")
+def download_template(_cid: int = Depends(current_company_id)):
+    """A ready-to-fill Excel template for bulk catalog upload (any company user)."""
+    data = build_catalog_template()
+    return Response(
+        content=data,
+        media_type=XLSX_MEDIA,
+        headers={"Content-Disposition": 'attachment; filename="catalog-template.xlsx"'},
+    )
+
+
 @router.post("/upload", response_model=CatalogUploadResult)
 async def upload_catalog(
     file: UploadFile,
@@ -134,7 +146,13 @@ async def upload_catalog(
         db.query(CatalogItem).filter(CatalogItem.company_id == cid).delete()
 
     if parsed.valid_rows:
-        rows = [{**r, "company_id": cid} for r in parsed.valid_rows]
+        company = db.get(Company, cid)
+        rows = []
+        for r in parsed.valid_rows:
+            row = {**r, "company_id": cid}
+            if not row.get("item_code"):  # assign a unique code to code-less rows
+                row["item_code"] = generate_item_code(db, company)
+            rows.append(row)
         stmt = pg_insert(CatalogItem).values(rows)
         update_cols = {
             c.name: stmt.excluded[c.name]

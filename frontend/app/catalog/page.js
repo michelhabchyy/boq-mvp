@@ -30,6 +30,7 @@ export default function CatalogPage() {
   const [q, setQ] = useState("");
   const [industry, setIndustry] = useState("");
   const [error, setError] = useState(null);
+  const [uploadMsg, setUploadMsg] = useState(null);
   const [busy, setBusy] = useState(null);
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -76,8 +77,25 @@ export default function CatalogPage() {
   async function onUpload(e) {
     const file = e.target.files?.[0];
     if (!file) return;
-    await act("upload", () => api.upload("/catalog/upload?replace=false&skip_invalid=true", file));
-    e.target.value = "";
+    setBusy("upload");
+    setError(null);
+    setUploadMsg(null);
+    try {
+      const res = await api.upload("/catalog/upload?replace=false&skip_invalid=true", file);
+      let msg = `Loaded ${res.loaded} item${res.loaded === 1 ? "" : "s"}.`;
+      if (res.skipped) msg += ` Skipped ${res.skipped} invalid row(s).`;
+      if (res.duplicates_in_file) msg += ` ${res.duplicates_in_file} duplicate code(s) merged.`;
+      if (res.loaded === 0) {
+        msg += " Nothing imported — check the file matches the sample template.";
+      }
+      setUploadMsg({ text: msg, ok: res.loaded > 0, errors: res.row_errors || [] });
+      await load(q, industry);
+    } catch (err) {
+      setError(String(err.message || err));
+    } finally {
+      setBusy(null);
+      e.target.value = "";
+    }
   }
 
   if (loading) return <main className="container" />;
@@ -104,15 +122,23 @@ export default function CatalogPage() {
         />
         <Stat k="Provider" v={status?.provider ?? "—"} />
         <div className="actions">
-          <label className="btn" style={{ cursor: "pointer" }}>
-            ⬆ Upload sheet
-            <input type="file" accept=".csv,.xlsx" hidden onChange={onUpload} />
+          <button
+            className="btn"
+            disabled={busy === "template"}
+            onClick={() => act("template", () => api.download("/catalog/template.xlsx", "catalog-template.xlsx"))}
+            title="Download a blank template to fill in and upload"
+          >
+            ⬇ Sample template
+          </button>
+          <label className="btn" style={{ cursor: busy === "upload" ? "wait" : "pointer" }}>
+            {busy === "upload" ? "Uploading…" : "⬆ Upload sheet"}
+            <input type="file" accept=".csv,.xlsx" hidden disabled={busy === "upload"} onChange={onUpload} />
           </label>
           <button
             className="btn"
             disabled={busy === "export"}
             onClick={() => act("export", () => api.download("/catalog/export", "catalog.xlsx"))}
-            title="Download the catalog as an Excel sheet"
+            title="Download the current catalog as an Excel sheet"
           >
             ⬇ Export Excel
           </button>
@@ -142,6 +168,27 @@ export default function CatalogPage() {
       </div>
 
       {error && <div className="alert">{error}</div>}
+
+      {uploadMsg && (
+        <div
+          className="alert"
+          style={{
+            background: uploadMsg.ok ? "var(--success-soft)" : "var(--warn-soft)",
+            color: uploadMsg.ok ? "var(--success)" : "var(--accent-text)",
+            borderColor: uploadMsg.ok ? "#bbf7d0" : "var(--border)",
+          }}
+        >
+          {uploadMsg.text}
+          {uploadMsg.errors.length > 0 && (
+            <ul style={{ margin: "6px 0 0", paddingLeft: 18, fontSize: 12 }}>
+              {uploadMsg.errors.slice(0, 5).map((re) => (
+                <li key={re.row}>Row {re.row}: {re.errors.join("; ")}</li>
+              ))}
+              {uploadMsg.errors.length > 5 && <li>…and {uploadMsg.errors.length - 5} more</li>}
+            </ul>
+          )}
+        </div>
+      )}
 
       {adding && (
         <ItemForm
