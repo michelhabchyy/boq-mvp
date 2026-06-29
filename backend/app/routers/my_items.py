@@ -4,22 +4,48 @@ Items auto-embed on save so they're immediately matchable by the contractor."""
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..auth import require_subcontractor
+from ..catalog_loader import parse_catalog_file
 from ..db import get_db
 from ..embeddings import build_embedding_text, get_embedder
 from ..item_utils import (
+    build_catalog_template,
     build_items_workbook,
     generate_item_code,
     log_item_change,
     summarize_changes,
 )
 from ..models import CatalogItem, Company, ItemAudit, User
-from ..schemas import CatalogItemIn, CatalogItemOut, CatalogItemPatch, ItemAuditOut
+from ..schemas import (
+    CatalogItemIn,
+    CatalogItemOut,
+    CatalogItemPatch,
+    CatalogUploadResult,
+    ItemAuditOut,
+    RowError,
+)
+from ..uploads import read_upload_capped
 from .catalog import XLSX_MEDIA, build_search_filter
+
+# Item fields accepted from an uploaded sheet (item_code is auto-assigned).
+_UPLOAD_FIELDS = (
+    "description_en",
+    "description_ar",
+    "unit",
+    "count_unit",
+    "unit_cost",
+    "brand",
+    "industry",
+    "category",
+    "supplier",
+    "model_number",
+    "link",
+    "notes",
+)
 
 router = APIRouter(prefix="/my-items", tags=["my-items"])
 
@@ -179,4 +205,83 @@ def export_my_items(db: Session = Depends(get_db), me: User = Depends(require_su
         content=data,
         media_type=XLSX_MEDIA,
         headers={"Content-Disposition": 'attachment; filename="my-items.xlsx"'},
+    )
+
+
+@router.get("/template.xlsx")
+def my_items_template(_me: User = Depends(require_subcontractor)):
+    """A ready-to-fill Excel template for bulk uploading items."""
+    return Response(
+        content=build_catalog_template(),
+        media_type=XLSX_MEDIA,
+        headers={"Content-Disposition": 'attachment; filename="items-template.xlsx"'},
+    )
+
+
+@router.post("/upload", response_model=CatalogUploadResult)
+async def upload_my_items(
+    file: UploadFile = File(...),
+    replace: bool = Query(False, description="Wipe my items before loading"),
+    skip_invalid: bool = Query(False, description="Load valid rows and skip bad ones"),
+    db: Session = Depends(get_db),
+    me: User = Depends(require_subcontractor),
+):
+    """Bulk-load the subcontractor's own items from a sheet. Codes are always
+    system-assigned (any item_code column is ignored), so an upload can never
+    collide with or overwrite the company's or another subcontractor's items.
+    Items are embedded on import so they're immediately matchable."""
+    content = await read_upload_capped(file)
+    try:
+        parsed = parse_catalog_file(file.filename or "", content)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    if parsed.missing_columns:
+        raise HTTPException(400, f"Missing required column(s): {', '.join(parsed.missing_columns)}")
+    row_errors = [RowError(row=r, errors=errs) for r, errs in parsed.row_errors]
+    if parsed.row_errors and not skip_invalid:
+        raise HTTPException(
+            422,
+            detail={
+                "message": f"{len(parsed.row_errors)} invalid row(s). Fix them or retry with skip_invalid.",
+                "row_errors": [e.model_dump() for e in row_errors],
+            },
+        )
+
+    if replace:
+        db.query(CatalogItem).filter(
+            CatalogItem.company_id == me.company_id,
+            CatalogItem.subcontractor_id == me.subcontractor_id,
+        ).delete(synchronize_session=False)
+
+    company = db.get(Company, me.company_id)
+    created: list[CatalogItem] = []
+    for r in parsed.valid_rows:
+        data = {k: r.get(k) for k in _UPLOAD_FIELDS}
+        item = CatalogItem(
+            **data,
+            company_id=me.company_id,
+            subcontractor_id=me.subcontractor_id,
+            item_code=generate_item_code(db, company),
+        )
+        created.append(item)
+
+    if created:
+        texts = [
+            build_embedding_text(
+                it.description_en, it.description_ar, it.industry, it.category, it.brand, it.model_number
+            )
+            for it in created
+        ]
+        vectors = get_embedder().embed_documents(texts)
+        for it, text, vec in zip(created, texts, vectors):
+            it.embedding = vec if text else None
+        db.add_all(created)
+    db.commit()
+
+    return CatalogUploadResult(
+        loaded=len(created),
+        duplicates_in_file=parsed.duplicates_in_file,
+        skipped=len(parsed.row_errors),
+        replaced_existing=replace,
+        row_errors=row_errors,
     )
