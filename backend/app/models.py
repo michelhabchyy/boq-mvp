@@ -211,6 +211,23 @@ class Document(Base):
     )
 
 
+class RecoveryCode(Base):
+    """A single-use 2FA backup code. Only the hash is stored; the plaintext is
+    shown to the user once at generation."""
+
+    __tablename__ = "recovery_codes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    code_hash: Mapped[str] = mapped_column(String(64), index=True, nullable=False)
+    used: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
 class CatalogItem(Base):
     __tablename__ = "catalog_items"
     # item_code is unique PER company (two companies may share a code).

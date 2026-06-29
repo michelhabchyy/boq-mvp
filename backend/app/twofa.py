@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
+import hashlib
 import io
+import secrets
 
 import pyotp
 import qrcode
 import qrcode.image.svg
 
 ISSUER = "Taqdeer"
+
+# Unambiguous alphabet (no 0/O/1/I/L) for human-typeable recovery codes.
+_RC_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
 
 def new_secret() -> str:
@@ -35,3 +40,28 @@ def qr_svg(uri: str) -> str:
     buf = io.BytesIO()
     img.save(buf)
     return buf.getvalue().decode("utf-8")
+
+
+# --- recovery (backup) codes -----------------------------------------------
+
+
+def generate_recovery_codes(count: int = 10) -> list[str]:
+    """Plaintext one-time codes, e.g. 'ABCDE-FGHJK'. Shown to the user once."""
+    codes = []
+    for _ in range(count):
+        raw = "".join(secrets.choice(_RC_ALPHABET) for _ in range(10))
+        codes.append(f"{raw[:5]}-{raw[5:]}")
+    return codes
+
+
+def normalize_recovery(code: str | None) -> str:
+    return "".join(ch for ch in (code or "").upper() if ch.isalnum())
+
+
+def hash_recovery(code: str) -> str:
+    return hashlib.sha256(normalize_recovery(code).encode("utf-8")).hexdigest()
+
+
+def looks_like_recovery(code: str | None) -> bool:
+    """A recovery code is 10 alphanumerics; a TOTP is 6 digits."""
+    return len(normalize_recovery(code)) >= 8

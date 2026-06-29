@@ -31,6 +31,7 @@ from app import models  # noqa: E402
 from app.auth import create_access_token, hash_password  # noqa: E402
 from app.db import engine, get_db  # noqa: E402
 from app.main import app  # noqa: E402
+from app.ratelimit import login_rate_limit  # noqa: E402
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -39,7 +40,11 @@ def _schema():
         from app.db import init_db
 
         init_db()
+    # The in-memory login rate limiter is per-IP; under tests every request comes
+    # from the same client, so disable it to avoid false 429s.
+    app.dependency_overrides[login_rate_limit] = lambda: None
     yield
+    app.dependency_overrides.pop(login_rate_limit, None)
 
 
 @pytest.fixture

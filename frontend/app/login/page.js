@@ -83,15 +83,14 @@ export default function LoginPage() {
             <label>Authentication code</label>
             <input
               className="input"
-              inputMode="numeric"
               autoComplete="one-time-code"
-              placeholder="6-digit code"
+              placeholder="6-digit or recovery code"
               value={otp}
               autoFocus
-              onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              onChange={(e) => setOtp(e.target.value.replace(/[^0-9A-Za-z-]/g, "").slice(0, 12))}
             />
             <p className="muted" style={{ margin: "4px 0 0", fontSize: 11 }}>
-              Enter the code from your authenticator app.
+              Enter the code from your authenticator app, or a recovery code.
             </p>
           </div>
         )}

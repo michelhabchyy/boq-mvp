@@ -46,3 +46,46 @@ def test_login_unaffected_without_2fa(client, make_company, make_user):
     u = make_user(company=co, role="reviewer", password="pw-secret-123")
     r = client.post("/auth/login", json={"username": u.username, "password": "pw-secret-123"})
     assert r.status_code == 200 and r.json()["access_token"] and r.json()["mfa_required"] is False
+
+
+def _enable_2fa(client, token, u, pw="pw-secret-123"):
+    hdr = token(u)
+    secret = client.post("/auth/2fa/setup", headers=hdr).json()["secret"]
+    res = client.post("/auth/2fa/verify", headers=hdr, json={"code": pyotp.TOTP(secret).now()}).json()
+    return hdr, secret, res["recovery_codes"]
+
+
+def test_recovery_code_login_and_single_use(client, make_company, make_user, token):
+    co = make_company()
+    u = make_user(company=co, role="admin", password="pw-secret-123")
+    hdr, secret, codes = _enable_2fa(client, token, u)
+
+    assert len(codes) == 10
+    assert client.get("/auth/2fa/status", headers=hdr).json()["recovery_codes_remaining"] == 10
+
+    # Login with a recovery code (e.g. lost the phone) works once.
+    rc = codes[0]
+    r = client.post("/auth/login", json={"username": u.username, "password": "pw-secret-123", "otp": rc})
+    assert r.status_code == 200 and r.json()["access_token"]
+
+    # The same code can't be reused, and the remaining count drops.
+    again = client.post("/auth/login", json={"username": u.username, "password": "pw-secret-123", "otp": rc})
+    assert again.status_code == 401
+    assert client.get("/auth/2fa/status", headers=hdr).json()["recovery_codes_remaining"] == 9
+
+
+def test_regenerate_invalidates_old_codes(client, make_company, make_user, token):
+    co = make_company()
+    u = make_user(company=co, role="admin", password="pw-secret-123")
+    hdr, secret, codes = _enable_2fa(client, token, u)
+
+    new = client.post(
+        "/auth/2fa/recovery-codes", headers=hdr, json={"code": pyotp.TOTP(secret).now()}
+    ).json()["recovery_codes"]
+    assert len(new) == 10 and set(new) != set(codes)
+
+    # An OLD code no longer works; a NEW one does.
+    old = client.post("/auth/login", json={"username": u.username, "password": "pw-secret-123", "otp": codes[1]})
+    assert old.status_code == 401
+    fresh = client.post("/auth/login", json={"username": u.username, "password": "pw-secret-123", "otp": new[0]})
+    assert fresh.status_code == 200 and fresh.json()["access_token"]

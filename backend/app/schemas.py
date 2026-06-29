@@ -194,6 +194,16 @@ class TwoFACode(BaseModel):
 
 class TwoFAStatus(BaseModel):
     enabled: bool
+    recovery_codes_remaining: int = 0
+
+
+class TwoFAVerifyOut(BaseModel):
+    enabled: bool
+    recovery_codes: list[str]  # shown once, right after enabling
+
+
+class RecoveryCodesOut(BaseModel):
+    recovery_codes: list[str]
 
 
 class UserCreate(BaseModel):
