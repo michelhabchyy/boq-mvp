@@ -5,15 +5,19 @@ Step 1 exposes two health checks:
   GET /db/health   -> Postgres is reachable AND pgvector is installed
 """
 
+import os
+import time
 from contextlib import asynccontextmanager
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 from .auth import get_current_user
 from .config import settings
 from .db import engine, init_db
+from .observability import configure_logging, get_logger, init_sentry
 from .routers import (
     auth,
     boq,
@@ -32,10 +36,18 @@ from .routers import (
 )
 
 
+configure_logging()
+init_sentry()
+log = get_logger("app")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Runs once on startup: make sure the vector extension is available.
-    init_db()
+    # Runs once on startup: ensure schema/extension exist. Tests set
+    # TAQDEER_SKIP_INIT so they never mutate a real database on app boot.
+    if os.environ.get("TAQDEER_SKIP_INIT") != "1":
+        init_db()
+        log.info("Startup complete (env=%s).", settings.app_env)
     yield
     # (nothing to clean up yet)
 
@@ -59,6 +71,23 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    """Log each request's method, path, status and duration; log + surface any
+    unhandled exception (so errors are never silent in production)."""
+    start = time.perf_counter()
+    try:
+        response = await call_next(request)
+    except Exception:
+        ms = (time.perf_counter() - start) * 1000
+        log.exception("%s %s -> unhandled error after %.0fms", request.method, request.url.path, ms)
+        raise
+    ms = (time.perf_counter() - start) * 1000
+    level = log.warning if response.status_code >= 500 else log.info
+    level("%s %s -> %s (%.0fms)", request.method, request.url.path, response.status_code, ms)
+    return response
 
 # auth/login is public; every other endpoint authenticates via its own
 # dependency (require_owner / require_company_admin / current_company_id), which

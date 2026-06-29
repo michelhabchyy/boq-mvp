@@ -72,3 +72,33 @@ npm run dev
 ```
 
 Open http://localhost:3000 — the page shows live backend + pgvector status.
+
+## Tests
+
+Backend tests live in `backend/tests/` and focus on authentication, multi-tenant
+isolation, and document access control. Every test runs inside a transaction that
+is rolled back, so **nothing is ever committed** — they are safe to run against any
+database.
+
+```bash
+cd backend
+pip install -r requirements.txt
+pytest                       # uses DATABASE_URL (schema must already exist)
+```
+
+To run against a throwaway database (as CI does), point it at a fresh
+Postgres+pgvector and let it create the schema:
+
+```bash
+TEST_DATABASE_URL=postgresql://user:pass@host:5432/boq_test TEST_INIT_DB=1 pytest
+```
+
+CI (`.github/workflows/ci.yml`) spins up `pgvector/pgvector:pg17`, runs the suite,
+and builds the frontend on every push/PR.
+
+## Observability
+
+- `LOG_LEVEL` (default `INFO`) controls backend logging; every request is logged
+  with method, path, status and duration, and unhandled errors are logged with a
+  stack trace.
+- Set `SENTRY_DSN` to enable error tracking (optional; no-op when unset).

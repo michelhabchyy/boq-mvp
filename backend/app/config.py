@@ -36,6 +36,14 @@ class Settings(BaseSettings):
     login_max_attempts: int = 5
     login_window_seconds: int = 60
 
+    # --- Observability ---
+    # Root log level (DEBUG / INFO / WARNING / ERROR).
+    log_level: str = "INFO"
+    # Sentry error tracking. Leave empty to disable; set the DSN in production.
+    sentry_dsn: str | None = None
+    # Fraction of requests traced for performance (0.0–1.0). Keep low in prod.
+    sentry_traces_sample_rate: float = 0.0
+
     @field_validator("database_url")
     @classmethod
     def use_psycopg3_driver(cls, v: str) -> str:

@@ -17,6 +17,7 @@ from ..auth import current_company_id, get_current_user
 from ..db import SessionLocal, get_db
 from ..llm import get_matcher
 from ..models import Company, RFPDocument, RFPLine, User
+from ..observability import get_logger
 from ..rfp_loader import extract_full_text, parse_rfp_file
 from ..usage import QuotaExceeded, over_limit, record_tokens
 from ..schemas import (
@@ -27,6 +28,7 @@ from ..schemas import (
 )
 
 router = APIRouter(prefix="/rfps", tags=["rfp"])
+log = get_logger("rfp")
 
 
 def _document_out(doc: RFPDocument, line_count: int) -> RFPDocumentOut:
@@ -170,6 +172,7 @@ def _run_ai_analysis(
     optional reference BoQ sample), persist sections/items, and set status.
     Uses its own DB session (the request's is already closed)."""
     db = SessionLocal()
+    log.info("RFP %s: analysis started (company=%s, file=%s)", rfp_id, company_id, fname)
     try:
         try:
             company = db.get(Company, company_id)
@@ -189,6 +192,7 @@ def _run_ai_analysis(
                     sample_text = extract_full_text(sample_fname, sample_content)
                 except Exception:
                     sample_text = ""  # bad sample is non-fatal
+                    log.warning("RFP %s: sample file unreadable, ignoring", rfp_id, exc_info=True)
             matcher = get_matcher()
             analyzed = matcher.analyze_rfp(
                 text, guidance=guidance, sample_text=sample_text
@@ -226,8 +230,13 @@ def _run_ai_analysis(
                     user_id=user_id,
                     kind="analysis",
                 )
+            log.info(
+                "RFP %s: analysis done — %s line(s), %s tokens",
+                rfp_id, line_no, getattr(matcher, "tokens_used", 0),
+            )
         except Exception as e:
             db.rollback()
+            log.exception("RFP %s: analysis failed: %s", rfp_id, e)
             doc = db.get(RFPDocument, rfp_id)
             if doc is not None:
                 doc.status = "failed"
