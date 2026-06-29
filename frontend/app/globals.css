@@ -909,6 +909,60 @@ input[type="file"] {
   .lp [data-reveal] { opacity: 1; transform: none; transition: none; }
 }
 
+/* ---- centered landing layout ---- */
+.lp-hero { grid-template-columns: 1fr; text-align: center; justify-items: center; gap: 30px; }
+.lp-lead { margin-left: auto; margin-right: auto; }
+.lp-cta-row { justify-content: center; }
+.lp-trust { justify-content: center; }
+.lp-visual { max-width: 560px; width: 100%; text-align: left; }
+.lp-section { text-align: center; }
+.lp-sub { margin-left: auto; margin-right: auto; }
+.lp-card { text-align: center; }
+.lp-card .ic { margin-left: auto; margin-right: auto; }
+.lp-step { text-align: center; }
+.lp-step .num { margin-left: auto; margin-right: auto; }
+.lp-stat { text-align: center; }
+.lp-points { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; max-width: 760px; margin: 0 auto; text-align: left; }
+.lp-point { display: flex; gap: 11px; align-items: flex-start; padding: 16px; border-radius: 14px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.1); }
+.lp-point .ic { color: var(--g); flex-shrink: 0; margin-top: 1px; }
+.lp-point div { font-size: 13.5px; color: var(--lp-muted); line-height: 1.5; }
+.lp-chipline.center { justify-content: center; }
+
+/* ---- pricing ---- */
+.lp-plans { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; align-items: stretch; text-align: left; }
+.lp-plan { display: flex; flex-direction: column; padding: 26px; border-radius: 18px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.1); position: relative; transition: transform 0.3s var(--ease), border-color 0.3s; }
+.lp-plan:hover { transform: translateY(-4px); border-color: rgba(47, 181, 115, 0.4); }
+.lp-plan.pop { border-color: rgba(47, 181, 115, 0.6); background: linear-gradient(180deg, rgba(47, 181, 115, 0.1), rgba(255, 255, 255, 0.03)); box-shadow: 0 22px 60px -26px rgba(47, 181, 115, 0.55); }
+.lp-plan .badge-pop { position: absolute; top: -11px; left: 50%; transform: translateX(-50%); background: linear-gradient(180deg, #34d399, #19a06f); color: #042; font-size: 11px; font-weight: 700; padding: 4px 13px; border-radius: 999px; white-space: nowrap; }
+.lp-plan h3 { margin: 0 0 4px; font-size: 19px; }
+.lp-plan .tag2 { color: var(--lp-muted); font-size: 13px; min-height: 36px; }
+.lp-plan .price { font-size: 34px; font-weight: 700; margin: 12px 0 0; }
+.lp-plan .per { color: var(--lp-muted); font-size: 13px; }
+.lp-plan ul { list-style: none; padding: 0; margin: 18px 0; display: grid; gap: 10px; }
+.lp-plan li { display: flex; gap: 9px; font-size: 13.5px; color: #cfe9e3; line-height: 1.45; }
+.lp-plan li .ic { color: var(--g); flex-shrink: 0; margin-top: 1px; }
+.lp-plan .lp-btn { margin-top: auto; justify-content: center; }
+
+/* ---- contact ---- */
+.lp-contact { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; text-align: left; align-items: start; }
+.lp-actions { display: grid; gap: 12px; align-content: start; }
+.lp-action { display: flex; gap: 12px; align-items: flex-start; padding: 16px; border-radius: 14px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.1); }
+.lp-action .ic { color: var(--g); }
+.lp-action h4 { margin: 0 0 3px; font-size: 14px; }
+.lp-action p { margin: 0; font-size: 13px; color: var(--lp-muted); }
+.lp-action a { color: #5ee0ad; }
+.lp-form { display: grid; gap: 12px; padding: 22px; border-radius: 16px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.1); }
+.lp-input { width: 100%; padding: 11px 13px; border-radius: 10px; background: rgba(0, 0, 0, 0.25); border: 1px solid rgba(255, 255, 255, 0.16); color: var(--lp-text); font-family: inherit; font-size: 14px; }
+.lp-input:focus { outline: none; border-color: var(--g); box-shadow: 0 0 0 3px rgba(47, 181, 115, 0.2); }
+.lp-input::placeholder { color: #6f8c88; }
+.lp-label { font-size: 12px; color: var(--lp-muted); font-weight: 600; }
+
+@media (max-width: 880px) {
+  .lp-plans { grid-template-columns: 1fr; }
+  .lp-contact { grid-template-columns: 1fr; }
+  .lp-points { grid-template-columns: 1fr; }
+}
+
 /* ============================================================
    Responsive / mobile
    ============================================================ */

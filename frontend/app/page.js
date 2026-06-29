@@ -51,7 +51,7 @@ export default function Landing() {
     return () => io.disconnect();
   }, []);
 
-  const primaryHref = signedIn ? "/rfps" : "/login";
+  const primaryHref = signedIn ? "/rfps" : "/pricing";
   const primaryLabel = signedIn ? "Open workspace" : "Get started";
 
   return (
@@ -67,10 +67,15 @@ export default function Landing() {
           <div className="lp-nav-links">
             <a href="#features">Features</a>
             <a href="#how">How it works</a>
-            <a href="#trust">Security</a>
-            <Link className="lp-btn lp-btn-ghost sm" href={primaryHref}>
-              {signedIn ? "Open app" : "Sign in"}
-            </Link>
+            <Link href="/pricing">Pricing</Link>
+            {signedIn ? (
+              <Link className="lp-btn lp-btn-primary sm" href="/rfps">Open app</Link>
+            ) : (
+              <>
+                <Link className="lp-btn lp-btn-ghost sm" href="/login">Sign in</Link>
+                <Link className="lp-btn lp-btn-primary sm" href="/pricing">Get started</Link>
+              </>
+            )}
           </div>
         </nav>
 
@@ -183,42 +188,34 @@ export default function Landing() {
 
         {/* Trust / security */}
         <section className="lp-section" id="trust">
-          <div className="lp-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
-            <div data-reveal>
-              <div className="lp-eyebrow">Trust</div>
-              <h2 className="lp-h2">Serious about your data</h2>
-              <p className="lp-sub" style={{ marginBottom: 16 }}>
-                Pricing and contracts are sensitive. Taqdeer is built so each
-                company's data stays its own — and only the right people get in.
-              </p>
-              <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 12 }}>
-                {[
-                  "Two-factor authentication with one-time recovery codes",
-                  "Strict per-company isolation — tenants never see each other's data",
-                  "Encrypted in transit, with security headers and a hardened API",
-                  "Full edit & deletion history on catalog and documents",
-                ].map((t) => (
-                  <li key={t} style={{ display: "flex", gap: 10, color: "var(--lp-muted)", fontSize: 14 }}>
-                    <span style={{ color: "var(--g)" }}>{icons.check}</span> {t}
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div className="lp-visual" data-reveal style={{ alignSelf: "center" }}>
-              <div className="cap">Signed documents · owner ↔ company ↔ subcontractor</div>
-              <div className="lp-chipline" style={{ marginTop: 14 }}>
-                <span className="lp-chip">{icons.shield} 2FA</span>
-                <span className="lp-chip">Tenant isolation</span>
-                <span className="lp-chip">Audit history</span>
-                <span className="lp-chip">Token quotas</span>
-                <span className="lp-chip">Recovery codes</span>
-                <span className="lp-chip">HTTPS · CSP</span>
+          <div data-reveal>
+            <div className="lp-eyebrow">Trust</div>
+            <h2 className="lp-h2">Serious about your data</h2>
+            <p className="lp-sub">
+              Pricing and contracts are sensitive. Taqdeer is built so each company's
+              data stays its own — and only the right people get in.
+            </p>
+          </div>
+          <div className="lp-points" data-reveal>
+            {[
+              "Two-factor authentication with one-time recovery codes",
+              "Strict per-company isolation — tenants never see each other's data",
+              "Encrypted in transit, with security headers and a hardened API",
+              "Full edit & deletion history on catalog and documents",
+            ].map((t) => (
+              <div className="lp-point" key={t}>
+                <span className="ic">{icons.check}</span>
+                <div>{t}</div>
               </div>
-              <p style={{ color: "var(--lp-muted)", fontSize: 13, marginTop: 16, lineHeight: 1.6 }}>
-                Official, signed documents flow securely along every relationship —
-                each party sees only what's shared with them.
-              </p>
-            </div>
+            ))}
+          </div>
+          <div className="lp-chipline center" style={{ marginTop: 18 }}>
+            <span className="lp-chip">2FA</span>
+            <span className="lp-chip">Tenant isolation</span>
+            <span className="lp-chip">Audit history</span>
+            <span className="lp-chip">Token quotas</span>
+            <span className="lp-chip">Recovery codes</span>
+            <span className="lp-chip">HTTPS · CSP</span>
           </div>
         </section>
 
@@ -235,7 +232,7 @@ export default function Landing() {
         <footer className="lp-footer">
           <Logo size={26} tone="light" showTag={false} />
           <div>© {2026} Taqdeer · تقدير — estimating intelligence</div>
-          <Link href={primaryHref} style={{ color: "var(--g)" }}>{signedIn ? "Open app →" : "Sign in →"}</Link>
+          <Link href={primaryHref} style={{ color: "var(--g)" }}>{primaryLabel} →</Link>
         </footer>
       </div>
     </div>

@@ -23,8 +23,9 @@ export default function AppChrome({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(null);
-  // Public, chrome-less routes: the marketing landing ("/") and login.
-  const isPublic = pathname === "/" || pathname?.startsWith("/login");
+  // Public, chrome-less routes: marketing landing ("/"), pricing, and login.
+  const isPublic =
+    pathname === "/" || pathname?.startsWith("/pricing") || pathname?.startsWith("/login");
 
   useEffect(() => {
     if (isPublic) {
