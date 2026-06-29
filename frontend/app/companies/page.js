@@ -104,7 +104,7 @@ export default function CompaniesPage() {
               <input className="input" value={nc.admin_username} onChange={(e) => setNc({ ...nc, admin_username: e.target.value })} required placeholder="adminclient1@gmail.com" />
             </Field>
             <Field label="Admin password">
-              <input className="input" value={nc.admin_password} onChange={(e) => setNc({ ...nc, admin_password: e.target.value })} required />
+              <input className="input" type="password" autoComplete="new-password" value={nc.admin_password} onChange={(e) => setNc({ ...nc, admin_password: e.target.value })} required />
             </Field>
             <Field label="Admin full name">
               <input className="input" value={nc.admin_full_name} onChange={(e) => setNc({ ...nc, admin_full_name: e.target.value })} />

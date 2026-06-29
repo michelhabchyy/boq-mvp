@@ -82,7 +82,7 @@ export default function UsersPage() {
               <input className="input" value={nu.full_name} onChange={(e) => setNu({ ...nu, full_name: e.target.value })} />
             </Field>
             <Field label="Password">
-              <input className="input" type="text" value={nu.password} onChange={(e) => setNu({ ...nu, password: e.target.value })} required />
+              <input className="input" type="password" autoComplete="new-password" value={nu.password} onChange={(e) => setNu({ ...nu, password: e.target.value })} required />
             </Field>
             <Field label="Role">
               <select className="input" value={nu.role} onChange={(e) => setNu({ ...nu, role: e.target.value })}>

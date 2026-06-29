@@ -165,7 +165,7 @@ function SubUsers({ subId, setError }) {
         >
           <input className="input" style={{ width: 220 }} placeholder="username / email" value={nu.username} onChange={(e) => setNu({ ...nu, username: e.target.value })} required />
           <input className="input" style={{ width: 160 }} placeholder="full name" value={nu.full_name} onChange={(e) => setNu({ ...nu, full_name: e.target.value })} />
-          <input className="input" style={{ width: 160 }} placeholder="password" value={nu.password} onChange={(e) => setNu({ ...nu, password: e.target.value })} required />
+          <input className="input" type="password" autoComplete="new-password" style={{ width: 160 }} placeholder="password" value={nu.password} onChange={(e) => setNu({ ...nu, password: e.target.value })} required />
           <button className="btn btn-sm btn-primary" disabled={busy}>Add login</button>
         </form>
         {!users && <div className="muted">Loading…</div>}

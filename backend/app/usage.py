@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from datetime import date, timedelta
 
-from sqlalchemy import case, func, select
+from sqlalchemy import case, func, select, update
 from sqlalchemy.orm import Session
 
 from .config import settings
@@ -69,10 +69,29 @@ def remaining(company: Company) -> int:
     return max(0, weekly_limit(company) - (company.weekly_tokens_used or 0))
 
 
+def _atomic_roll(db: Session, company: Company) -> None:
+    """Reset the weekly counter to 0 if we've crossed into a new ISO week — done
+    as a single UPDATE so concurrent requests can't lose the reset, then refresh
+    the in-memory object so callers see the current value."""
+    this_week = _monday(date.today())
+    db.execute(
+        update(Company)
+        .where(Company.id == company.id)
+        .values(
+            weekly_tokens_used=case(
+                (Company.week_start.is_distinct_from(this_week), 0),
+                else_=func.coalesce(Company.weekly_tokens_used, 0),
+            ),
+            week_start=this_week,
+        )
+    )
+    db.commit()
+    db.refresh(company)
+
+
 def over_limit(db: Session, company: Company) -> bool:
     """True if the company has no allowance left this week (rolls the week first)."""
-    roll_week(company)
-    db.commit()
+    _atomic_roll(db, company)
     return (company.weekly_tokens_used or 0) >= weekly_limit(company)
 
 
@@ -97,8 +116,20 @@ def record_tokens(
     """
     actual = max(0, int(tokens))
     billed = billed_tokens(actual)
-    roll_week(company)
-    company.weekly_tokens_used = (company.weekly_tokens_used or 0) + billed
+    this_week = _monday(date.today())
+    # Atomic: roll the week (if needed) AND add the billed tokens in ONE update,
+    # so simultaneous AI operations can't lose each other's usage.
+    db.execute(
+        update(Company)
+        .where(Company.id == company.id)
+        .values(
+            weekly_tokens_used=case(
+                (Company.week_start.is_distinct_from(this_week), billed),
+                else_=func.coalesce(Company.weekly_tokens_used, 0) + billed,
+            ),
+            week_start=this_week,
+        )
+    )
     if actual > 0:
         db.add(
             TokenUsage(
@@ -110,6 +141,7 @@ def record_tokens(
             )
         )
     db.commit()
+    db.refresh(company)
 
 
 def user_breakdown(db: Session, company_id: int) -> list[dict]:

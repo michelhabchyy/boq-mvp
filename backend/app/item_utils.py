@@ -12,7 +12,7 @@ from io import BytesIO
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
-from sqlalchemy import select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from .models import CatalogItem, Company, ItemAudit
@@ -55,12 +55,20 @@ def _code_in_use(db: Session, company_id: int, code: str) -> bool:
 
 
 def generate_item_code(db: Session, company: Company) -> str:
-    """Assign the next per-company item code (e.g. ITM-000123). The company's
-    counter only ever increases, so codes are never reused — not even after the
-    item is deleted. Skips any code that somehow already exists."""
+    """Assign the next per-company item code (e.g. ITM-000123). The counter only
+    ever increases, so codes are never reused — not even after deletion.
+
+    The increment is done with an atomic ``UPDATE ... RETURNING`` so two
+    concurrent creates can never claim the same number (the row lock serialises
+    them at the database). Skips any code that somehow already exists."""
     while True:
-        seq = company.next_item_seq or 1
-        company.next_item_seq = seq + 1
+        new_seq = db.execute(
+            update(Company)
+            .where(Company.id == company.id)
+            .values(next_item_seq=func.coalesce(Company.next_item_seq, 1) + 1)
+            .returning(Company.next_item_seq)
+        ).scalar_one()
+        seq = new_seq - 1  # the value we just claimed (pre-increment)
         code = f"ITM-{seq:06d}"
         if not _code_in_use(db, company.id, code):
             return code
