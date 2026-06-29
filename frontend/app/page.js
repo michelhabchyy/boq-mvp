@@ -1,248 +1,243 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { api } from "../lib/api";
+import { getToken } from "../lib/api";
+import { Logo, ProcessMark } from "./Logo";
 
-export default function Home() {
-  const [rfps, setRfps] = useState(null);
-  const [error, setError] = useState(null);
-  const [busy, setBusy] = useState(null);
-  const [aiAnalyze, setAiAnalyze] = useState(true);
-  const [rfpFile, setRfpFile] = useState(null);
-  const [sampleFile, setSampleFile] = useState(null);
-  const [description, setDescription] = useState("");
-  const [formKey, setFormKey] = useState(0);
+// Small inline icons (stroke = currentColor).
+const Icon = ({ d }) => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    {d}
+  </svg>
+);
+const icons = {
+  ai: <Icon d={<><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8" /><circle cx="12" cy="12" r="3" /></>} />,
+  doc: <Icon d={<><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6M9 13h6M9 17h6" /></>} />,
+  match: <Icon d={<><circle cx="6" cy="6" r="3" /><circle cx="18" cy="18" r="3" /><path d="M9 6h6a3 3 0 0 1 3 3v6M6 9v6a3 3 0 0 0 3 3h6" /></>} />,
+  shield: <Icon d={<><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><path d="m9 12 2 2 4-4" /></>} />,
+  globe: <Icon d={<><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15 15 0 0 1 0 20a15 15 0 0 1 0-20z" /></>} />,
+  gauge: <Icon d={<><path d="M12 14a4 4 0 1 0-4-4" /><path d="M12 14v-1M20 12a8 8 0 1 0-16 0" /></>} />,
+  check: <Icon d={<path d="m5 12 4 4L19 7" />} />,
+};
 
-  const load = useCallback(
-    () =>
-      api
-        .get("/rfps")
-        .then(setRfps)
-        .catch((e) => setError(String(e.message || e))),
-    []
-  );
+const FEATURES = [
+  { i: "ai", h: "AI scope analysis", p: "Drop in a messy RFP — Excel, Word, or PDF, Arabic or English — and the engine reads the whole document, structuring it into clean, sectioned work items." },
+  { i: "match", h: "Smart catalog matching", p: "Each line is matched against your priced catalog with confidence scoring, so your estimators review and approve instead of pricing from scratch." },
+  { i: "doc", h: "Bilingual BoQ export", p: "Produce a polished, bilingual (AR/EN) Bill of Quantities ready to send — every section, item and total, in one click." },
+  { i: "globe", h: "Subcontractor network", p: "Subcontractors maintain their own price lists and receive signed documents, all isolated and pooled into your catalog automatically." },
+  { i: "gauge", h: "Cost under control", p: "Weekly AI-token plans per company and live per-user usage tracking mean you always know — and cap — what each tender costs." },
+  { i: "shield", h: "Secure by design", p: "Two-factor authentication, strict per-company isolation, encrypted transport, and a full edit/audit history on every record." },
+];
+
+const STEPS = [
+  { h: "Upload the RFP", p: "Add the scope of work and, optionally, a reference BoQ template and instructions for the AI." },
+  { h: "AI structures & prices", p: "The document is parsed into sections and items, then matched to your catalog with confidence scores." },
+  { h: "Review & export", p: "Approve the lines you trust, adjust the rest, and export a clean bilingual BoQ — fast." },
+];
+
+export default function Landing() {
+  const [signedIn, setSignedIn] = useState(false);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    setSignedIn(!!getToken());
+    // Reveal-on-scroll for elements marked [data-reveal].
+    const els = document.querySelectorAll("[data-reveal]");
+    const io = new IntersectionObserver(
+      (entries) => entries.forEach((e) => e.isIntersecting && e.target.classList.add("lp-in")),
+      { threshold: 0.12 }
+    );
+    els.forEach((el) => io.observe(el));
+    return () => io.disconnect();
+  }, []);
 
-  // While any RFP is still being analyzed in the background, poll for updates.
-  useEffect(() => {
-    if (rfps && rfps.some((r) => r.status === "analyzing")) {
-      const t = setTimeout(load, 4000);
-      return () => clearTimeout(t);
-    }
-  }, [rfps, load]);
-
-  async function doUpload() {
-    if (!rfpFile) return;
-    setBusy("upload");
-    setError(null);
-    try {
-      const fd = new FormData();
-      fd.append("file", rfpFile);
-      if (description.trim()) fd.append("description", description.trim());
-      if (aiAnalyze && sampleFile) fd.append("sample", sampleFile);
-      await api.uploadForm(`/rfps/upload?analyze=${aiAnalyze}`, fd);
-      setRfpFile(null);
-      setSampleFile(null);
-      setDescription("");
-      setFormKey((k) => k + 1); // remount file inputs to clear them
-      await load();
-    } catch (err) {
-      setError(String(err.message || err));
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  async function runMatching(id) {
-    setBusy(`match-${id}`);
-    setError(null);
-    try {
-      await api.post(`/matching/run/${id}`);
-    } catch (err) {
-      setError(String(err));
-    } finally {
-      setBusy(null);
-    }
-  }
+  const primaryHref = signedIn ? "/rfps" : "/login";
+  const primaryLabel = signedIn ? "Open workspace" : "Get started";
 
   return (
-    <main className="container narrow">
-      <div className="eyebrow">Bill of Quantities · AR / EN</div>
-      <h1 className="page-title">RFP Workspace</h1>
-      <p className="page-sub">
-        Upload a scope of work, run the matching engine, then review and export a
-        bilingual BoQ.
-      </p>
+    <div className="lp">
+      <div className="lp-orb a" />
+      <div className="lp-orb b" />
+      <div className="lp-orb c" />
 
-      {error && <div className="alert">{error}</div>}
+      <div className="lp-wrap">
+        {/* Nav */}
+        <nav className="lp-nav">
+          <Logo size={30} tone="light" showTag={false} />
+          <div className="lp-nav-links">
+            <a href="#features">Features</a>
+            <a href="#how">How it works</a>
+            <a href="#trust">Security</a>
+            <Link className="lp-btn lp-btn-ghost sm" href={primaryHref}>
+              {signedIn ? "Open app" : "Sign in"}
+            </Link>
+          </div>
+        </nav>
 
-      <section className="panel">
-        <div className="panel-head">
-          <h2>Upload RFP</h2>
-          <span className="tag">.xlsx · .docx · .pdf</span>
-        </div>
-        <div className="panel-body">
-          <div className="field" style={{ marginTop: 0 }}>
-            <label>RFP file</label>
-            <input
-              key={`rfp-${formKey}`}
-              type="file"
-              accept=".xlsx,.docx,.pdf"
-              onChange={(e) => setRfpFile(e.target.files?.[0] || null)}
-              disabled={busy === "upload"}
-            />
+        {/* Hero */}
+        <header className="lp-hero">
+          <div>
+            <span className="lp-pill"><span className="dot" /> Bilingual estimation · built for KSA</span>
+            <h1 className="lp-h1">
+              From chaotic RFP to a priced, <span className="grad">bilingual BoQ</span> — in minutes.
+            </h1>
+            <p className="lp-lead">
+              Taqdeer reads your scope of work, structures it, and matches it to your
+              catalog with confidence scores — so your team approves a precise Bill
+              of Quantities instead of building one by hand.
+            </p>
+            <div className="lp-cta-row">
+              <Link className="lp-btn lp-btn-primary" href={primaryHref}>{primaryLabel} →</Link>
+              <a className="lp-btn lp-btn-ghost" href="#how">See how it works</a>
+            </div>
+            <div className="lp-trust">
+              <span><span className="ic">{icons.check}</span> Arabic + English, native</span>
+              <span><span className="ic">{icons.check}</span> Two-factor secured</span>
+              <span><span className="ic">{icons.check}</span> Catalog-priced, never guessed</span>
+            </div>
           </div>
 
-          <label className="row" style={{ marginTop: 12, gap: 6, cursor: "pointer" }}>
-            <input
-              type="checkbox"
-              checked={aiAnalyze}
-              onChange={(e) => setAiAnalyze(e.target.checked)}
-            />
-            <span style={{ fontSize: 13 }}>
-              <strong>AI analysis</strong> — reads the whole document (multi-sheet
-              Excel, Word, or PDF) and extracts sections + items. Required for PDF;
-              uncheck only for a clean single-sheet BoQ table.
-            </span>
-          </label>
-
-          {aiAnalyze && (
-            <>
-              <div className="field">
-                <label>Your prompt / instructions for the AI (optional)</label>
-                <textarea
-                  className="input"
-                  rows={4}
-                  placeholder={
-                    "Describe the RFP and tell the agent how to analyze and distribute it. e.g.:\n" +
-                    "• MEP tender for a hospital — group items into scopes by discipline (HVAC, Electrical, Plumbing).\n" +
-                    "• Quantities are in the 'Qty' column; ignore the preliminaries/terms.\n" +
-                    "• Keep item names short; split civil vs finishing into separate scopes."
-                  }
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                />
-                <div className="tag" style={{ marginTop: 4 }}>
-                  Combined with the built-in prompt to steer the section/item
-                  distribution and level of detail.
-                </div>
+          <div className="lp-visual" data-reveal>
+            <div className="cap">RFP → ordered, approved BoQ</div>
+            <div className="lp-flow">
+              <div className="col">
+                <span className="bar muted" style={{ width: 70 }} />
+                <span className="bar muted" style={{ width: 52 }} />
+                <span className="bar muted" style={{ width: 62 }} />
+                <span className="bar muted" style={{ width: 44 }} />
               </div>
-
-              <div className="field">
-                <label>Reference BoQ template / sample (optional)</label>
-                <input
-                  key={`sample-${formKey}`}
-                  type="file"
-                  accept=".xlsx,.docx,.pdf"
-                  onChange={(e) => setSampleFile(e.target.files?.[0] || null)}
-                />
-                <div className="tag" style={{ marginTop: 4 }}>
-                  If you have a sample BoQ, the AI mirrors its structure & columns.
-                </div>
+              <span className="arrow">→</span>
+              <div className="col" style={{ alignItems: "flex-end" }}>
+                <span className="bar teal" style={{ width: 78 }} />
+                <span className="bar teal" style={{ width: 78 }} />
+                <span className="bar teal" style={{ width: 78 }} />
+                <span className="bar green" style={{ width: 78 }} />
               </div>
-            </>
-          )}
-
-          <div className="row" style={{ marginTop: 14 }}>
-            <button
-              className="btn btn-primary"
-              onClick={doUpload}
-              disabled={!rfpFile || busy === "upload"}
-            >
-              {busy === "upload"
-                ? aiAnalyze
-                  ? "Uploading…"
-                  : "Processing…"
-                : aiAnalyze
-                ? "Upload & analyze"
-                : "Upload"}
-            </button>
-            {rfpFile && <span className="muted" style={{ fontSize: 13 }}>{rfpFile.name}</span>}
+            </div>
+            <div style={{ display: "flex", justifyContent: "center", margin: "6px 0 10px" }}>
+              <ProcessMark width={220} />
+            </div>
+            <div className="lp-chipline">
+              <span className="lp-chip">Electrical · Scope 1</span>
+              <span className="lp-chip">Plumbing · Scope 2</span>
+              <span className="lp-chip">✓ approved</span>
+              <span className="lp-chip">SAR totals</span>
+            </div>
           </div>
-        </div>
-      </section>
+        </header>
 
-      <section className="panel">
-        <div className="panel-head">
-          <h2>RFPs</h2>
-          <span className="tag">{rfps ? `${rfps.length} total` : ""}</span>
-        </div>
-        {!rfps && !error && <div className="empty">Loading…</div>}
-        {rfps && rfps.length === 0 && (
-          <div className="empty">No RFPs yet — upload one above to get started.</div>
-        )}
-        {rfps && rfps.length > 0 && (
-          <table className="table">
-            <thead>
-              <tr>
-                <th>RFP</th>
-                <th>Type</th>
-                <th>Status</th>
-                <th className="num">Lines</th>
-                <th style={{ textAlign: "right" }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rfps.map((r) => {
-                const ready = r.status === "ready";
-                return (
-                  <tr key={r.id}>
-                    <td>
-                      <span className="muted nums">#{r.id}</span>{" "}
-                      <strong>{r.filename}</strong>
-                    </td>
-                    <td>
-                      <span className="badge badge-gray">{r.source_type}</span>
-                    </td>
-                    <td>
-                      {r.status === "analyzing" && (
-                        <span className="badge badge-amber">analyzing…</span>
-                      )}
-                      {r.status === "ready" && (
-                        <span className="badge badge-green">ready</span>
-                      )}
-                      {r.status === "failed" && (
-                        <div>
-                          <span className="badge badge-red">failed</span>
-                          {r.error && (
-                            <div style={{ fontSize: 11, color: "var(--danger)", marginTop: 3, maxWidth: 320 }}>
-                              {r.error}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </td>
-                    <td className="num">{r.line_count}</td>
-                    <td className="cell-actions">
-                      <button
-                        className="btn btn-sm"
-                        onClick={() => runMatching(r.id)}
-                        disabled={!ready || busy === `match-${r.id}`}
-                        title={ready ? "" : "Wait for analysis to finish"}
-                      >
-                        {busy === `match-${r.id}` ? "Matching…" : "Run matching"}
-                      </button>
-                      {ready ? (
-                        <Link className="btn btn-sm btn-primary" href={`/review/${r.id}`}>
-                          Review →
-                        </Link>
-                      ) : (
-                        <button className="btn btn-sm btn-primary" disabled>
-                          Review →
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
-      </section>
-    </main>
+        {/* Stat band */}
+        <section className="lp-section" style={{ paddingTop: 10 }}>
+          <div className="lp-stats" data-reveal>
+            {[
+              { v: <><span className="grad">10×</span></>, k: "Faster than pricing by hand" },
+              { v: "AR / EN", k: "Bilingual, end to end" },
+              { v: <><span className="grad">100%</span></>, k: "Catalog-based pricing" },
+              { v: "2FA", k: "Secured accounts" },
+            ].map((s, i) => (
+              <div className="lp-stat" key={i}>
+                <div className="v">{s.v}</div>
+                <div className="k">{s.k}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Features */}
+        <section className="lp-section" id="features">
+          <div data-reveal>
+            <div className="lp-eyebrow">What it does</div>
+            <h2 className="lp-h2">Everything from scope to signed quote</h2>
+            <p className="lp-sub">
+              A focused toolchain for contractors and their subcontractors — built
+              around the way bids actually get priced.
+            </p>
+          </div>
+          <div className="lp-grid">
+            {FEATURES.map((f) => (
+              <div className="lp-card" key={f.h} data-reveal>
+                <div className="ic">{icons[f.i]}</div>
+                <h3>{f.h}</h3>
+                <p>{f.p}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* How it works */}
+        <section className="lp-section" id="how">
+          <div data-reveal>
+            <div className="lp-eyebrow">How it works</div>
+            <h2 className="lp-h2">Three steps to a finished BoQ</h2>
+          </div>
+          <div className="lp-steps">
+            {STEPS.map((s, i) => (
+              <div className="lp-step" key={s.h} data-reveal>
+                <div className="num">{i + 1}</div>
+                <h3>{s.h}</h3>
+                <p>{s.p}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Trust / security */}
+        <section className="lp-section" id="trust">
+          <div className="lp-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
+            <div data-reveal>
+              <div className="lp-eyebrow">Trust</div>
+              <h2 className="lp-h2">Serious about your data</h2>
+              <p className="lp-sub" style={{ marginBottom: 16 }}>
+                Pricing and contracts are sensitive. Taqdeer is built so each
+                company's data stays its own — and only the right people get in.
+              </p>
+              <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 12 }}>
+                {[
+                  "Two-factor authentication with one-time recovery codes",
+                  "Strict per-company isolation — tenants never see each other's data",
+                  "Encrypted in transit, with security headers and a hardened API",
+                  "Full edit & deletion history on catalog and documents",
+                ].map((t) => (
+                  <li key={t} style={{ display: "flex", gap: 10, color: "var(--lp-muted)", fontSize: 14 }}>
+                    <span style={{ color: "var(--g)" }}>{icons.check}</span> {t}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="lp-visual" data-reveal style={{ alignSelf: "center" }}>
+              <div className="cap">Signed documents · owner ↔ company ↔ subcontractor</div>
+              <div className="lp-chipline" style={{ marginTop: 14 }}>
+                <span className="lp-chip">{icons.shield} 2FA</span>
+                <span className="lp-chip">Tenant isolation</span>
+                <span className="lp-chip">Audit history</span>
+                <span className="lp-chip">Token quotas</span>
+                <span className="lp-chip">Recovery codes</span>
+                <span className="lp-chip">HTTPS · CSP</span>
+              </div>
+              <p style={{ color: "var(--lp-muted)", fontSize: 13, marginTop: 16, lineHeight: 1.6 }}>
+                Official, signed documents flow securely along every relationship —
+                each party sees only what's shared with them.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* CTA band */}
+        <section className="lp-section">
+          <div className="lp-band" data-reveal>
+            <h2>Price your next tender with confidence.</h2>
+            <p>Bilingual, catalog-accurate, and secure — from the first RFP.</p>
+            <Link className="lp-btn lp-btn-primary" href={primaryHref}>{primaryLabel} →</Link>
+          </div>
+        </section>
+
+        {/* Footer */}
+        <footer className="lp-footer">
+          <Logo size={26} tone="light" showTag={false} />
+          <div>© {2026} Taqdeer · تقدير — estimating intelligence</div>
+          <Link href={primaryHref} style={{ color: "var(--g)" }}>{signedIn ? "Open app →" : "Sign in →"}</Link>
+        </footer>
+      </div>
+    </div>
   );
 }

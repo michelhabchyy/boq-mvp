@@ -23,10 +23,11 @@ export default function AppChrome({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(null);
-  const isLogin = pathname?.startsWith("/login");
+  // Public, chrome-less routes: the marketing landing ("/") and login.
+  const isPublic = pathname === "/" || pathname?.startsWith("/login");
 
   useEffect(() => {
-    if (isLogin) {
+    if (isPublic) {
       setLoading(false);
       return;
     }
@@ -58,12 +59,12 @@ export default function AppChrome({ children }) {
         }
       })
       .catch(() => {});
-  }, [pathname, isLogin, router]);
+  }, [pathname, isPublic, router]);
 
   function enterCompany(company) {
     persistActingCompany(company);
     setActing(company);
-    router.push("/");
+    router.push("/rfps");
   }
   function exitCompany() {
     clearActingCompany();
@@ -77,7 +78,7 @@ export default function AppChrome({ children }) {
 
   const ctx = { user, loading, acting, enterCompany, exitCompany, canAdmin };
 
-  if (isLogin) {
+  if (isPublic) {
     return (
       <AuthContext.Provider value={{ ...ctx, loading: false }}>
         {children}
@@ -171,7 +172,7 @@ function TopBar({ user, pathname, acting }) {
     { href: "/companies", label: "Companies", show: isOwner && !ownerActing },
     { href: "/plans", label: "Plans", show: isOwner && !ownerActing },
     { href: "/overview", label: "Dashboard", show: role === "reviewer" || adminMenu },
-    { href: "/", label: "RFPs", show: role === "reviewer" || adminMenu },
+    { href: "/rfps", label: "RFPs", show: role === "reviewer" || adminMenu },
     { href: "/catalog", label: "Catalog", show: adminMenu },
     { href: "/subcontractors", label: "Subcontractors", show: adminMenu },
     { href: "/users", label: "Users", show: adminMenu },
@@ -185,12 +186,11 @@ function TopBar({ user, pathname, acting }) {
   // usage endpoints will resolve — only then show the live token chip.
   const inCompany = role === "admin" || role === "reviewer" || ownerActing;
 
-  const active = (href) =>
-    href === "/" ? pathname === "/" : pathname?.startsWith(href);
+  const active = (href) => pathname === href || pathname?.startsWith(href + "/");
 
   return (
     <header className="topbar">
-      <Link className="brand" href={isOwner && !ownerActing ? "/dashboard" : "/"} style={{ color: "#fff" }}>
+      <Link className="brand" href={isOwner && !ownerActing ? "/dashboard" : "/rfps"} style={{ color: "#fff" }}>
         <Logo size={28} tone="light" />
       </Link>
       <nav className="nav">

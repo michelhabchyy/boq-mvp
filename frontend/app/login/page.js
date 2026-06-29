@@ -25,7 +25,7 @@ export default function LoginPage() {
         setBusy(false);
         return; // show the 2FA code field and wait for it
       }
-      router.push("/");
+      router.push("/rfps");
     } catch (err) {
       setError(String(err.message || err));
     } finally {

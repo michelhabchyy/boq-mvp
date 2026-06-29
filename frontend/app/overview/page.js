@@ -74,7 +74,7 @@ export default function CompanyOverviewPage() {
 
   const t = data?.totals;
   const cards = [
-    { k: "RFPs", v: t?.rfps ?? "—", href: "/" },
+    { k: "RFPs", v: t?.rfps ?? "—", href: "/rfps" },
     { k: "BoQ value", v: t ? money(t.total_value) : "—" },
     { k: "BoQ lines", v: t?.boq_lines ?? "—" },
     { k: "Subcontractors", v: t?.subcontractors ?? "—", href: "/subcontractors" },
@@ -141,7 +141,7 @@ export default function CompanyOverviewPage() {
         </div>
         {!data && <div className="empty">Loading…</div>}
         {data && data.rfps.length === 0 && (
-          <div className="empty">No RFPs yet. <Link href="/">Upload one →</Link></div>
+          <div className="empty">No RFPs yet. <Link href="/rfps">Upload one →</Link></div>
         )}
         {data && data.rfps.length > 0 && (
           <table className="table">
