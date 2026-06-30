@@ -137,13 +137,6 @@ export default function PricingPage() {
           <div className="lp-contact" data-reveal>
             <div className="lp-actions">
               <div className="lp-action">
-                <span className="ic">{phone}</span>
-                <div>
-                  <h4>Request a call / meeting</h4>
-                  <p>Tell us a good time and we'll call you back. <a href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent("Taqdeer — request a call")}`}>Book a call →</a></p>
-                </div>
-              </div>
-              <div className="lp-action">
                 <span className="ic">{mail}</span>
                 <div>
                   <h4>Email us</h4>
