@@ -19,7 +19,10 @@ const icons = {
   globe: <Icon d={<><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15 15 0 0 1 0 20a15 15 0 0 1 0-20z" /></>} />,
   gauge: <Icon d={<><path d="M12 14a4 4 0 1 0-4-4" /><path d="M12 14v-1M20 12a8 8 0 1 0-16 0" /></>} />,
   check: <Icon d={<path d="m5 12 4 4L19 7" />} />,
+  instagram: <Icon d={<><rect x="2" y="2" width="20" height="20" rx="5" /><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" /><line x1="17.5" y1="6.5" x2="17.51" y2="6.5" /></>} />,
 };
+
+const INSTAGRAM_URL = "https://www.instagram.com/taqdeer.ksa";
 
 const FEATURES = [
   { i: "ai", h: "AI scope analysis", p: "Drop in a messy RFP: Excel, Word, or PDF, Arabic or English, and the engine reads the whole document, structuring it into clean, sectioned work items." },
@@ -273,7 +276,19 @@ export default function Landing() {
         <footer className="lp-footer">
           <Logo size={26} tone="light" showTag={false} />
           <div>© {2026} Taqdeer · تقدير — estimating intelligence</div>
-          <Link href={primaryHref} style={{ color: "var(--g)" }}>{primaryLabel} →</Link>
+          <div className="lp-foot-right">
+            <a
+              className="lp-social"
+              href={INSTAGRAM_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Taqdeer on Instagram"
+              title="Follow us on Instagram"
+            >
+              {icons.instagram}
+            </a>
+            <Link href={primaryHref} style={{ color: "var(--g)" }}>{primaryLabel} →</Link>
+          </div>
         </footer>
       </div>
     </div>

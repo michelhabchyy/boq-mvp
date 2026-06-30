@@ -183,7 +183,19 @@ export default function PricingPage() {
         <footer className="lp-footer">
           <Link href="/"><Logo size={26} tone="light" showTag={false} /></Link>
           <div>© 2026 Taqdeer · تقدير — estimating intelligence</div>
-          <Link href="/login" style={{ color: "var(--g)" }}>Sign in →</Link>
+          <div className="lp-foot-right">
+            <a
+              className="lp-social"
+              href="https://www.instagram.com/taqdeer.ksa"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Taqdeer on Instagram"
+              title="Follow us on Instagram"
+            >
+              <Icon d={<><rect x="2" y="2" width="20" height="20" rx="5" /><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" /><line x1="17.5" y1="6.5" x2="17.51" y2="6.5" /></>} />
+            </a>
+            <Link href="/login" style={{ color: "var(--g)" }}>Sign in →</Link>
+          </div>
         </footer>
       </div>
     </div>
