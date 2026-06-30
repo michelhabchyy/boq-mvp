@@ -22,18 +22,18 @@ const icons = {
 };
 
 const FEATURES = [
-  { i: "ai", h: "AI scope analysis", p: "Drop in a messy RFP — Excel, Word, or PDF, Arabic or English — and the engine reads the whole document, structuring it into clean, sectioned work items." },
+  { i: "ai", h: "AI scope analysis", p: "Drop in a messy RFP: Excel, Word, or PDF, Arabic or English, and the engine reads the whole document, structuring it into clean, sectioned work items." },
   { i: "match", h: "Smart catalog matching", p: "Each line is matched against your priced catalog with confidence scoring, so your estimators review and approve instead of pricing from scratch." },
-  { i: "doc", h: "Bilingual BoQ export", p: "Produce a polished, bilingual (AR/EN) Bill of Quantities ready to send — every section, item and total, in one click." },
-  { i: "globe", h: "Subcontractor network", p: "Subcontractors maintain their own price lists and receive signed documents, all isolated and pooled into your catalog automatically." },
-  { i: "gauge", h: "Cost under control", p: "Weekly AI-token plans per company and live per-user usage tracking mean you always know — and cap — what each tender costs." },
+  { i: "doc", h: "Bilingual BoQ export", p: "Produce a polished, bilingual (AR/EN) Bill of Quantities ready to send; every section, item and total, in one click." },
+  { i: "globe", h: "Subcontractor network", p: "Subcontractors maintain their own price lists and receive Official and Signed documents, all isolated and pooled into your catalog automatically." },
+  { i: "gauge", h: "Cost under control", p: "Weekly AI-token plans per company and live per-user usage tracking mean you always know; and cap; what each tender costs." },
   { i: "shield", h: "Secure by design", p: "Two-factor authentication, strict per-company isolation, encrypted transport, and a full edit/audit history on every record." },
 ];
 
 const STEPS = [
   { h: "Upload the RFP", p: "Add the scope of work and, optionally, a reference BoQ template and instructions for the AI." },
   { h: "AI structures & prices", p: "The document is parsed into sections and items, then matched to your catalog with confidence scores." },
-  { h: "Review & export", p: "Approve the lines you trust, adjust the rest, and export a clean bilingual BoQ — fast." },
+  { h: "Review & export", p: "Approve the lines you trust, adjust the rest, and export a clean bilingual BoQ; fast." },
 ];
 
 export default function Landing() {
@@ -122,12 +122,6 @@ export default function Landing() {
             <div style={{ display: "flex", justifyContent: "center", margin: "6px 0 10px" }}>
               <ProcessMark width={220} />
             </div>
-            <div className="lp-chipline">
-              <span className="lp-chip">Electrical · Scope 1</span>
-              <span className="lp-chip">Plumbing · Scope 2</span>
-              <span className="lp-chip">✓ approved</span>
-              <span className="lp-chip">SAR totals</span>
-            </div>
           </div>
         </header>
 
@@ -154,7 +148,7 @@ export default function Landing() {
             <div className="lp-eyebrow">What it does</div>
             <h2 className="lp-h2">Everything from scope to signed quote</h2>
             <p className="lp-sub">
-              A focused toolchain for contractors and their subcontractors — built
+              A focused toolchain for contractors and their subcontractors; built
               around the way bids actually get priced.
             </p>
           </div>
@@ -193,13 +187,13 @@ export default function Landing() {
             <h2 className="lp-h2">Serious about your data</h2>
             <p className="lp-sub">
               Pricing and contracts are sensitive. Taqdeer is built so each company's
-              data stays its own — and only the right people get in.
+              data stays its own, and only the right people get in.
             </p>
           </div>
           <div className="lp-points" data-reveal>
             {[
               "Two-factor authentication with one-time recovery codes",
-              "Strict per-company isolation — tenants never see each other's data",
+              "Strict per-company isolation, tenants never see each other's data",
               "Encrypted in transit, with security headers and a hardened API",
               "Full edit & deletion history on catalog and documents",
             ].map((t) => (
@@ -223,7 +217,7 @@ export default function Landing() {
         <section className="lp-section">
           <div className="lp-band" data-reveal>
             <h2>Price your next tender with confidence.</h2>
-            <p>Bilingual, catalog-accurate, and secure — from the first RFP.</p>
+            <p>Bilingual, catalog-accurate, and secure, from the first RFP.</p>
             <Link className="lp-btn lp-btn-primary" href={primaryHref}>{primaryLabel} →</Link>
           </div>
         </section>
