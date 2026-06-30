@@ -82,13 +82,13 @@ export default function Landing() {
         {/* Hero */}
         <header className="lp-hero">
           <div>
-            <span className="lp-pill"><span className="dot" /> Bilingual estimation · built for KSA</span>
+            <span className="lp-pill"><span className="dot" /> Bilingual estimation</span>
             <h1 className="lp-h1">
               From chaotic RFP to a priced, <span className="grad">bilingual BoQ</span> — in minutes.
             </h1>
             <p className="lp-lead">
               Taqdeer reads your scope of work, structures it, and matches it to your
-              catalog with confidence scores — so your team approves a precise Bill
+              catalog with confidence scores, so your team approves a precise Bill
               of Quantities instead of building one by hand.
             </p>
             <div className="lp-cta-row">
@@ -104,21 +104,6 @@ export default function Landing() {
 
           <div className="lp-visual" data-reveal>
             <div className="cap">RFP → ordered, approved BoQ</div>
-            <div className="lp-flow">
-              <div className="col">
-                <span className="bar muted" style={{ width: 70 }} />
-                <span className="bar muted" style={{ width: 52 }} />
-                <span className="bar muted" style={{ width: 62 }} />
-                <span className="bar muted" style={{ width: 44 }} />
-              </div>
-              <span className="arrow">→</span>
-              <div className="col" style={{ alignItems: "flex-end" }}>
-                <span className="bar teal" style={{ width: 78 }} />
-                <span className="bar teal" style={{ width: 78 }} />
-                <span className="bar teal" style={{ width: 78 }} />
-                <span className="bar green" style={{ width: 78 }} />
-              </div>
-            </div>
             <div style={{ display: "flex", justifyContent: "center", margin: "6px 0 10px" }}>
               <ProcessMark width={220} />
             </div>
