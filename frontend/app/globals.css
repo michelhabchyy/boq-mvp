@@ -963,6 +963,28 @@ input[type="file"] {
   .lp-points { grid-template-columns: 1fr; }
 }
 
+/* ---- dashboard preview ---- */
+.lp-dash { max-width: 720px; margin: 0 auto; text-align: left; padding: 18px; border-radius: 18px;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.02));
+  border: 1px solid rgba(255, 255, 255, 0.12); box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.6); backdrop-filter: blur(8px); }
+.lp-dash-head { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: #cfe9e3; margin-bottom: 14px; }
+.lp-dash-head .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #34d399; margin-right: 7px; box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.6); animation: pulse 2s infinite; }
+.lp-dash-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 12px; }
+.lp-dash-tile { padding: 12px; border-radius: 12px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.1); }
+.lp-dash-tile .v { font-size: 19px; font-weight: 700; color: #fff; }
+.lp-dash-tile .k { font-size: 11px; color: var(--lp-muted); margin-top: 2px; }
+.lp-dash-panel { padding: 14px; border-radius: 12px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.1); }
+.lp-dash-ptitle { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--lp-muted); margin-bottom: 10px; }
+.lp-dash-row { display: flex; align-items: center; gap: 12px; margin: 9px 0; font-size: 13px; color: #cfe9e3; }
+.lp-dash-row .nm { width: 150px; flex-shrink: 0; }
+.lp-dash-row .track { flex: 1; height: 8px; border-radius: 6px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+.lp-dash-row .fill { height: 100%; border-radius: 6px; background: linear-gradient(90deg, var(--t), var(--g)); }
+.lp-dash-row .amt { width: 86px; text-align: right; color: #fff; font-variant-numeric: tabular-nums; }
+@media (max-width: 880px) {
+  .lp-dash-stats { grid-template-columns: 1fr 1fr; }
+  .lp-dash-row .nm { width: 96px; }
+}
+
 /* ============================================================
    Responsive / mobile
    ============================================================ */

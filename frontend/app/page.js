@@ -66,6 +66,7 @@ export default function Landing() {
           <Logo size={30} tone="light" showTag={false} />
           <div className="lp-nav-links">
             <a href="#features">Features</a>
+            <a href="#dashboard">Dashboard</a>
             <a href="#how">How it works</a>
             <Link href="/pricing">Pricing</Link>
             {signedIn ? (
@@ -160,6 +161,67 @@ export default function Landing() {
                 <div className="num">{i + 1}</div>
                 <h3>{s.h}</h3>
                 <p>{s.p}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Company dashboard */}
+        <section className="lp-section" id="dashboard">
+          <div data-reveal>
+            <div className="lp-eyebrow">Your control room</div>
+            <h2 className="lp-h2">A live dashboard, the moment you sign in</h2>
+            <p className="lp-sub">
+              Every company gets its own dashboard — one place to see all your RFPs
+              and their Bills of Quantities, broken down by subcontractor, with
+              one-click downloads and live AI-cost tracking.
+            </p>
+          </div>
+
+          <div className="lp-dash" data-reveal>
+            <div className="lp-dash-head">
+              <span><span className="dot" /> Company dashboard</span>
+              <span className="lp-chip">this week</span>
+            </div>
+            <div className="lp-dash-stats">
+              {[
+                ["RFPs", "12"],
+                ["BoQ value", "SAR 4.2M"],
+                ["Subcontractors", "8"],
+                ["AI usage", "62%"],
+              ].map(([k, v]) => (
+                <div className="lp-dash-tile" key={k}>
+                  <div className="v">{v}</div>
+                  <div className="k">{k}</div>
+                </div>
+              ))}
+            </div>
+            <div className="lp-dash-panel">
+              <div className="lp-dash-ptitle">BoQ value by subcontractor</div>
+              {[
+                ["ACME Electrical", 82, "SAR 1.9M"],
+                ["Gulf Plumbing", 54, "SAR 1.1M"],
+                ["Falcon Civil", 33, "SAR 0.7M"],
+              ].map(([nm, w, amt]) => (
+                <div className="lp-dash-row" key={nm}>
+                  <span className="nm">{nm}</span>
+                  <span className="track"><span className="fill" style={{ width: `${w}%` }} /></span>
+                  <span className="amt">{amt}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="lp-points" data-reveal style={{ marginTop: 18 }}>
+            {[
+              "All RFPs at a glance — status, scope lines, BoQ lines and total value per tender.",
+              "Per-subcontractor breakdown — see who priced what, and download each one's BoQ.",
+              "Live AI usage — weekly token spend per company and per user, so cost never surprises you.",
+              "Recent activity & documents — catalog history and signed files, one click away.",
+            ].map((t) => (
+              <div className="lp-point" key={t}>
+                <span className="ic">{icons.check}</span>
+                <div>{t}</div>
               </div>
             ))}
           </div>
