@@ -13,6 +13,7 @@ from ..models import Project, ProjectEvent, User
 from ..observability import get_logger
 from ..schemas import (
     PROJECT_STATUSES,
+    ProjectActivityOut,
     ProjectDetailOut,
     ProjectEventOut,
     ProjectIn,
@@ -77,6 +78,35 @@ def projects_summary(db: Session = Depends(get_db), cid: int = Depends(current_c
         ).all()
     )
     return {s: rows.get(s, 0) for s in PROJECT_STATUSES}
+
+
+@router.get("/activity", response_model=list[ProjectActivityOut])
+def activity(
+    limit: int = Query(60, ge=1, le=200),
+    db: Session = Depends(get_db),
+    cid: int = Depends(current_company_id),
+):
+    """Company-wide feed of every pipeline update across all projects."""
+    rows = db.execute(
+        select(ProjectEvent, Project.name)
+        .join(Project, Project.id == ProjectEvent.project_id)
+        .where(ProjectEvent.company_id == cid)
+        .order_by(ProjectEvent.created_at.desc(), ProjectEvent.id.desc())
+        .limit(limit)
+    ).all()
+    return [
+        ProjectActivityOut(
+            id=e.id,
+            project_id=e.project_id,
+            project_name=name,
+            from_status=e.from_status,
+            to_status=e.to_status,
+            note=e.note,
+            username=e.username,
+            created_at=e.created_at,
+        )
+        for e, name in rows
+    ]
 
 
 @router.get("/{project_id}", response_model=ProjectDetailOut)

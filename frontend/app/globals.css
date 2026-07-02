@@ -1305,3 +1305,31 @@ a:focus-visible {
 .timeline { list-style: none; margin: 8px 0 0; padding: 0; }
 .timeline li { display: flex; gap: 10px; padding: 7px 0; font-size: 12.5px; border-bottom: 1px dashed var(--border); }
 .timeline .when { color: var(--text-subtle); white-space: nowrap; }
+
+/* full-view pipeline grid (all stages visible, no horizontal scroll) */
+.pipeline { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 10px; align-items: start; margin-top: 14px; }
+.pipeline .kan-col { flex: initial; }
+.pipeline .kan-col-body { max-height: none; min-height: 90px; padding: 8px; }
+.pipeline .kan-card { padding: 9px 10px; }
+.pipeline .kan-card .nm { font-size: 12.5px; }
+@media (max-width: 1150px) { .pipeline { grid-template-columns: repeat(4, 1fr); } }
+@media (max-width: 720px) { .pipeline { grid-template-columns: repeat(2, 1fr); } }
+
+/* card extras */
+.kan-prog { height: 4px; border-radius: 4px; background: var(--surface-3); overflow: hidden; margin-top: 8px; }
+.kan-prog > span { display: block; height: 100%; border-radius: 4px; }
+.kan-foot { margin-top: 8px; }
+.kan-foot select { width: 100%; font-size: 11px; padding: 3px 6px; border-radius: 6px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); cursor: pointer; }
+.kan-card .chip-i { display: inline-flex; align-items: center; gap: 4px; }
+
+/* KPI dots */
+.kpi-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+
+/* activity log */
+.act { list-style: none; margin: 0; padding: 0; }
+.act li { display: flex; gap: 12px; align-items: baseline; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.act li:last-child { border-bottom: none; }
+.act .when { color: var(--text-subtle); font-size: 11.5px; white-space: nowrap; min-width: 132px; }
+.act .who { color: var(--text-muted); font-size: 11.5px; }
+.act .pname { font-weight: 600; }
+.stat .v .kpi-dot { margin-bottom: 1px; }

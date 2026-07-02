@@ -360,6 +360,17 @@ class ProjectDetailOut(BaseModel):
     events: list[ProjectEventOut] = []
 
 
+class ProjectActivityOut(BaseModel):
+    id: int
+    project_id: int
+    project_name: str
+    from_status: str | None = None
+    to_status: str
+    note: str | None = None
+    username: str | None = None
+    created_at: datetime
+
+
 class ItemAuditOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
