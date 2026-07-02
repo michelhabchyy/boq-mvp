@@ -6,6 +6,7 @@ import { api } from "../../lib/api";
 
 export default function RfpsPage() {
   const [rfps, setRfps] = useState(null);
+  const [runnable, setRunnable] = useState([]);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(null);
   const [aiAnalyze, setAiAnalyze] = useState(true);
@@ -16,9 +17,11 @@ export default function RfpsPage() {
 
   const load = useCallback(
     () =>
-      api
-        .get("/rfps")
-        .then(setRfps)
+      Promise.all([
+        api.get("/rfps"),
+        api.get("/projects/rfp-files").catch(() => []),
+      ])
+        .then(([r, f]) => { setRfps(r); setRunnable(f); })
         .catch((e) => setError(String(e.message || e))),
     []
   );
@@ -49,6 +52,19 @@ export default function RfpsPage() {
       setSampleFile(null);
       setDescription("");
       setFormKey((k) => k + 1); // remount file inputs to clear them
+      await load();
+    } catch (err) {
+      setError(String(err.message || err));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function runFromProject(fileId) {
+    setBusy(`run-${fileId}`);
+    setError(null);
+    try {
+      await api.post(`/projects/files/${fileId}/run`);
       await load();
     } catch (err) {
       setError(String(err.message || err));
@@ -166,6 +182,47 @@ export default function RfpsPage() {
         </div>
       </section>
 
+      {runnable.length > 0 && (
+        <section className="panel">
+          <div className="panel-head">
+            <h2>From your projects</h2>
+            <span className="tag">choose one to run</span>
+          </div>
+          <table className="table">
+            <thead>
+              <tr>
+                <th>RFP file</th>
+                <th>Project</th>
+                <th style={{ textAlign: "right" }}>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {runnable.map((f) => (
+                <tr key={f.file_id}>
+                  <td><strong>{f.filename}</strong></td>
+                  <td>
+                    <Link href={`/projects/${f.project_id}`} className="pname">{f.project_name}</Link>
+                  </td>
+                  <td className="cell-actions">
+                    {f.rfp_document_id ? (
+                      <Link className="btn btn-sm" href={`/review/${f.rfp_document_id}`}>Open →</Link>
+                    ) : (
+                      <button
+                        className="btn btn-sm btn-primary"
+                        disabled={busy === `run-${f.file_id}`}
+                        onClick={() => runFromProject(f.file_id)}
+                      >
+                        {busy === `run-${f.file_id}` ? "Running…" : "▶ Run"}
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      )}
+
       <section className="panel">
         <div className="panel-head">
           <h2>RFPs</h2>
@@ -180,6 +237,7 @@ export default function RfpsPage() {
             <thead>
               <tr>
                 <th>RFP</th>
+                <th>Project</th>
                 <th>Type</th>
                 <th>Status</th>
                 <th className="num">Lines</th>
@@ -194,6 +252,13 @@ export default function RfpsPage() {
                     <td>
                       <span className="muted nums">#{r.id}</span>{" "}
                       <strong>{r.filename}</strong>
+                    </td>
+                    <td>
+                      {r.project_name ? (
+                        <Link href={`/projects/${r.project_id}`} className="pname">{r.project_name}</Link>
+                      ) : (
+                        <span className="muted">—</span>
+                      )}
                     </td>
                     <td>
                       <span className="badge badge-gray">{r.source_type}</span>

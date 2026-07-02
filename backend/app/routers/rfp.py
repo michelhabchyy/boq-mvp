@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 from ..auth import current_company_id, get_current_user
 from ..db import SessionLocal, get_db
 from ..llm import get_matcher
-from ..models import Company, RFPDocument, RFPLine, User
+from ..models import Company, Project, RFPDocument, RFPLine, User
 from ..observability import get_logger
 from ..uploads import read_upload_capped
 from ..rfp_loader import extract_full_text, parse_rfp_file
@@ -32,7 +32,7 @@ router = APIRouter(prefix="/rfps", tags=["rfp"])
 log = get_logger("rfp")
 
 
-def _document_out(doc: RFPDocument, line_count: int) -> RFPDocumentOut:
+def _document_out(doc: RFPDocument, line_count: int, project_name: str | None = None) -> RFPDocumentOut:
     return RFPDocumentOut(
         id=doc.id,
         filename=doc.filename,
@@ -41,6 +41,8 @@ def _document_out(doc: RFPDocument, line_count: int) -> RFPDocumentOut:
         error=doc.error,
         created_at=doc.created_at,
         line_count=line_count,
+        project_id=doc.project_id,
+        project_name=project_name,
     )
 
 
@@ -263,7 +265,11 @@ def list_rfps(
         .limit(limit)
         .offset(offset)
     ).all()
-    return [_document_out(doc, count) for doc, count in rows]
+    pids = {d.project_id for d, _ in rows if d.project_id}
+    names = {}
+    if pids:
+        names = dict(db.execute(select(Project.id, Project.name).where(Project.id.in_(pids))).all())
+    return [_document_out(doc, count, names.get(doc.project_id)) for doc, count in rows]
 
 
 def _owned_rfp(db: Session, rfp_id: int, cid: int) -> RFPDocument:

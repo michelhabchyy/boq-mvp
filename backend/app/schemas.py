@@ -413,6 +413,30 @@ class CapabilityFieldOut(BaseModel):
     services: list[CapabilityServiceOut] = []
 
 
+class ProjectFileOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    project_id: int
+    kind: str  # 'rfp' | 'boq_template'
+    filename: str
+    content_type: str | None = None
+    size: int = 0
+    uploaded_by_name: str | None = None
+    rfp_document_id: int | None = None
+    created_at: datetime
+
+
+class RunnableRfpOut(BaseModel):
+    """A project RFP file surfaced on the RFP page so it can be run."""
+
+    file_id: int
+    filename: str
+    project_id: int
+    project_name: str
+    rfp_document_id: int | None = None  # non-null once run
+
+
 class ProjectActivityOut(BaseModel):
     id: int
     project_id: int
@@ -478,6 +502,8 @@ class RFPDocumentOut(BaseModel):
     error: str | None = None
     created_at: datetime
     line_count: int
+    project_id: int | None = None
+    project_name: str | None = None
 
 
 class RFPUploadResult(BaseModel):

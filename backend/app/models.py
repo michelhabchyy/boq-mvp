@@ -272,6 +272,35 @@ class ProjectEvent(Base):
     )
 
 
+class ProjectFile(Base):
+    """A file attached to a project: an RFP to run later, or a BoQ template.
+    Bytes stored in the DB (BYTEA). RFP files can be 'run' into the RFP workflow,
+    which links the created RFPDocument back here."""
+
+    __tablename__ = "project_files"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    company_id: Mapped[int] = mapped_column(
+        ForeignKey("companies.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    kind: Mapped[str] = mapped_column(String(20), nullable=False)  # 'rfp' | 'boq_template'
+    filename: Mapped[str] = mapped_column(String(400), nullable=False)
+    content_type: Mapped[str | None] = mapped_column(String(150))
+    size: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    data: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    uploaded_by_name: Mapped[str | None] = mapped_column(String(160))
+    # Set once an RFP file has been run into the RFP workflow.
+    rfp_document_id: Mapped[int | None] = mapped_column(
+        ForeignKey("rfp_documents.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
 class CapabilityField(Base):
     """A field/discipline the company works in (top of the capability tree)."""
 
@@ -407,6 +436,10 @@ class RFPDocument(Base):
     )
     filename: Mapped[str] = mapped_column(String(500), nullable=False)
     source_type: Mapped[str] = mapped_column(String(10), nullable=False)  # xlsx|docx|pdf
+    # Optional link to the project this RFP belongs to.
+    project_id: Mapped[int | None] = mapped_column(
+        ForeignKey("projects.id", ondelete="SET NULL"), index=True, nullable=True
+    )
     # AI analysis runs in the background: 'ready' (done / deterministic upload),
     # 'analyzing' (in progress), or 'failed' (see error).
     status: Mapped[str] = mapped_column(String(20), default="ready", nullable=False)

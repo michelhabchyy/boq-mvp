@@ -3,24 +3,41 @@ shortlisted → awarded → in progress → completed (or lost). Company-scoped:
 admins manage; reviewers (and the owner acting on a company) can view.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+import re
+
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    HTTPException,
+    Query,
+    Response,
+    UploadFile,
+)
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..auth import admin_company_id, current_company_id, get_current_user
 from ..db import get_db
-from ..models import BoqLine, Project, ProjectEvent, RFPDocument, User
+from ..models import BoqLine, Project, ProjectEvent, ProjectFile, RFPDocument, User
 from ..observability import get_logger
 from ..schemas import (
     PROJECT_STATUSES,
     ProjectActivityOut,
     ProjectDetailOut,
     ProjectEventOut,
+    ProjectFileOut,
     ProjectIn,
     ProjectOut,
     ProjectStatusIn,
     ProjectUpdate,
+    RunnableRfpOut,
 )
+from ..uploads import read_upload_capped
+
+FILE_KINDS = {"rfp", "boq_template"}
+XLSX_MEDIA = "application/octet-stream"
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 log = get_logger("projects")
@@ -126,6 +143,24 @@ def activity(
     ]
 
 
+@router.get("/rfp-files", response_model=list[RunnableRfpOut])
+def runnable_rfp_files(db: Session = Depends(get_db), cid: int = Depends(current_company_id)):
+    """RFP files attached to projects — surfaced on the RFP page to run."""
+    rows = db.execute(
+        select(ProjectFile, Project.name)
+        .join(Project, Project.id == ProjectFile.project_id)
+        .where(ProjectFile.company_id == cid, ProjectFile.kind == "rfp")
+        .order_by(ProjectFile.created_at.desc())
+    ).all()
+    return [
+        RunnableRfpOut(
+            file_id=pf.id, filename=pf.filename, project_id=pf.project_id,
+            project_name=name, rfp_document_id=pf.rfp_document_id,
+        )
+        for pf, name in rows
+    ]
+
+
 @router.get("/{project_id}", response_model=ProjectDetailOut)
 def get_project(project_id: int, db: Session = Depends(get_db), cid: int = Depends(current_company_id)):
     p = _owned(db, project_id, cid)
@@ -224,3 +259,116 @@ def delete_project(
     db.delete(p)
     db.commit()
     return {"deleted": project_id}
+
+
+# --- project files (RFPs & BoQ templates) ----------------------------------
+
+
+def _owned_file(db: Session, file_id: int, cid: int) -> ProjectFile:
+    pf = db.get(ProjectFile, file_id)
+    if pf is None or pf.company_id != cid:
+        raise HTTPException(404, f"File {file_id} not found")
+    return pf
+
+
+@router.get("/{project_id}/files", response_model=list[ProjectFileOut])
+def list_files(project_id: int, db: Session = Depends(get_db), cid: int = Depends(current_company_id)):
+    _owned(db, project_id, cid)
+    return (
+        db.execute(
+            select(ProjectFile).where(ProjectFile.project_id == project_id).order_by(ProjectFile.created_at.desc())
+        ).scalars().all()
+    )
+
+
+@router.post("/{project_id}/files", response_model=ProjectFileOut)
+async def upload_file(
+    project_id: int,
+    kind: str = Query("rfp", description="rfp | boq_template"),
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    cid: int = Depends(admin_company_id),
+    user: User = Depends(get_current_user),
+):
+    _owned(db, project_id, cid)
+    if kind not in FILE_KINDS:
+        raise HTTPException(400, f"kind must be one of {sorted(FILE_KINDS)}")
+    data = await read_upload_capped(file)
+    if not data:
+        raise HTTPException(400, "The uploaded file is empty.")
+    pf = ProjectFile(
+        project_id=project_id, company_id=cid, kind=kind,
+        filename=file.filename or "file", content_type=file.content_type,
+        size=len(data), data=data,
+        uploaded_by_name=(user.full_name or user.username),
+    )
+    db.add(pf)
+    db.commit()
+    db.refresh(pf)
+    return pf
+
+
+@router.get("/files/{file_id}/download")
+def download_file(file_id: int, db: Session = Depends(get_db), cid: int = Depends(current_company_id)):
+    pf = _owned_file(db, file_id, cid)
+    safe = re.sub(r'[^A-Za-z0-9._ -]', "_", pf.filename) or "file"
+    return Response(
+        content=pf.data,
+        media_type=pf.content_type or "application/octet-stream",
+        headers={"Content-Disposition": f'attachment; filename="{safe}"'},
+    )
+
+
+@router.delete("/files/{file_id}")
+def delete_file(file_id: int, db: Session = Depends(get_db), cid: int = Depends(admin_company_id)):
+    pf = _owned_file(db, file_id, cid)
+    db.delete(pf)
+    db.commit()
+    return {"deleted": file_id}
+
+
+@router.post("/files/{file_id}/run")
+def run_rfp_file(
+    file_id: int,
+    background: BackgroundTasks,
+    db: Session = Depends(get_db),
+    cid: int = Depends(admin_company_id),
+    user: User = Depends(get_current_user),
+):
+    """Ingest an attached RFP file into the RFP workflow: create an RFPDocument
+    (linked to the project) and run AI analysis in the background. If the project
+    has a BoQ template attached, it's used as the reference sample."""
+    from .rfp import _run_ai_analysis, _source_type  # local import avoids cycles
+
+    pf = _owned_file(db, file_id, cid)
+    if pf.kind != "rfp":
+        raise HTTPException(400, "Only RFP files can be run.")
+    st = _source_type(pf.filename)
+    if st == "file":
+        raise HTTPException(400, "Unsupported RFP file type. Use .xlsx, .docx, or .pdf.")
+
+    doc = RFPDocument(
+        filename=pf.filename, source_type=st, company_id=cid,
+        project_id=pf.project_id, status="analyzing",
+    )
+    db.add(doc)
+    db.commit()
+    db.refresh(doc)
+
+    # Use a BoQ template on the same project as the reference sample, if present.
+    tmpl = db.execute(
+        select(ProjectFile).where(
+            ProjectFile.project_id == pf.project_id, ProjectFile.kind == "boq_template"
+        ).order_by(ProjectFile.created_at.desc())
+    ).scalars().first()
+    sample_fname = tmpl.filename if tmpl else ""
+    sample_content = tmpl.data if tmpl else None
+
+    pf.rfp_document_id = doc.id
+    db.commit()
+
+    background.add_task(
+        _run_ai_analysis, doc.id, cid, pf.filename, pf.data, "", sample_fname, sample_content, user.id
+    )
+    log.info("Project file %s run as RFP %s", file_id, doc.id)
+    return {"rfp_id": doc.id, "status": "analyzing"}

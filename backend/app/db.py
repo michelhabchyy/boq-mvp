@@ -103,6 +103,9 @@ def init_db() -> None:
         conn.execute(
             text("ALTER TABLE rfp_lines ADD COLUMN IF NOT EXISTS section_title VARCHAR(300)")
         )
+        # Link RFPs to a project (optional).
+        conn.execute(text("ALTER TABLE rfp_documents ADD COLUMN IF NOT EXISTS project_id INTEGER"))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_rfp_documents_project_id ON rfp_documents (project_id)"))
         # Background AI analysis: status + error on rfp_documents.
         conn.execute(
             text("ALTER TABLE rfp_documents ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'ready'")
