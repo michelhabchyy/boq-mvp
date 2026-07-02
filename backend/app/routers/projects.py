@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from ..auth import admin_company_id, current_company_id, get_current_user
 from ..db import get_db
-from ..models import Project, ProjectEvent, User
+from ..models import BoqLine, Project, ProjectEvent, RFPDocument, User
 from ..observability import get_logger
 from ..schemas import (
     PROJECT_STATUSES,
@@ -36,6 +36,23 @@ def _owned(db: Session, project_id: int, cid: int) -> Project:
 def _check_status(status: str) -> None:
     if status not in PROJECT_STATUSES:
         raise HTTPException(400, f"status must be one of {PROJECT_STATUSES}")
+
+
+def _check_rfp(db: Session, rfp_id: int | None, cid: int) -> None:
+    """A linked RFP must belong to the same company."""
+    if rfp_id is not None:
+        doc = db.get(RFPDocument, rfp_id)
+        if doc is None or doc.company_id != cid:
+            raise HTTPException(404, f"RFP {rfp_id} not found")
+
+
+def _boq_total(db: Session, rfp_id: int, cid: int) -> float:
+    total = db.execute(
+        select(func.coalesce(func.sum(BoqLine.line_total), 0)).where(
+            BoqLine.rfp_id == rfp_id, BoqLine.company_id == cid
+        )
+    ).scalar_one()
+    return float(total)
 
 
 def _log_event(db, project, from_status, to_status, user, note=None):
@@ -121,9 +138,18 @@ def get_project(project_id: int, db: Session = Depends(get_db), cid: int = Depen
         .scalars()
         .all()
     )
+    boq_total = None
+    rfp_filename = None
+    if p.rfp_id:
+        rfp = db.get(RFPDocument, p.rfp_id)
+        if rfp is not None and rfp.company_id == cid:
+            rfp_filename = rfp.filename
+            boq_total = _boq_total(db, p.rfp_id, cid)
     return ProjectDetailOut(
         project=ProjectOut.model_validate(p),
         events=[ProjectEventOut.model_validate(e) for e in events],
+        boq_total=boq_total,
+        rfp_filename=rfp_filename,
     )
 
 
@@ -136,6 +162,7 @@ def create_project(
 ):
     status = payload.status or "lead"
     _check_status(status)
+    _check_rfp(db, payload.rfp_id, cid)
     data = payload.model_dump(exclude={"status"})
     project = Project(**data, status=status, company_id=cid)
     db.add(project)
@@ -155,7 +182,10 @@ def update_project(
     cid: int = Depends(admin_company_id),
 ):
     p = _owned(db, project_id, cid)
-    for key, value in payload.model_dump(exclude_unset=True).items():
+    fields = payload.model_dump(exclude_unset=True)
+    if "rfp_id" in fields:
+        _check_rfp(db, fields["rfp_id"], cid)
+    for key, value in fields.items():
         setattr(p, key, value)
     db.commit()
     db.refresh(p)

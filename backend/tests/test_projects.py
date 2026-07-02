@@ -62,6 +62,35 @@ def test_reviewer_cannot_create(client, make_company, make_user, token):
     assert client.get("/projects", headers=token(reviewer)).status_code == 200
 
 
+def test_project_financials_and_boq_link(client, make_company, make_user, make_rfp, token, db):
+    from app import models
+
+    co = make_company()
+    admin = make_user(company=co, role="admin")
+    rfp = make_rfp(co)
+    line = models.RFPLine(company_id=co.id, rfp_id=rfp.id, line_no=1, description="x")
+    db.add(line)
+    db.flush()
+    db.add(models.BoqLine(company_id=co.id, rfp_id=rfp.id, rfp_line_id=line.id, line_total=1000))
+    db.add(models.BoqLine(company_id=co.id, rfp_id=rfp.id, rfp_line_id=line.id, line_total=500))
+    db.flush()
+
+    pid = _new(client, token, admin, rfp_id=rfp.id, contract_value=1800, actual_cost=1200).json()["id"]
+    d = client.get(f"/projects/{pid}", headers=token(admin)).json()
+    assert d["boq_total"] == 1500          # planned, pulled live from the linked BoQ
+    assert d["rfp_filename"]
+    assert d["project"]["contract_value"] == 1800
+    assert d["project"]["actual_cost"] == 1200
+
+
+def test_project_rfp_link_must_be_own_company(client, make_company, make_user, make_rfp, token):
+    a, b = make_company("A"), make_company("B")
+    admin_a = make_user(company=a, role="admin")
+    b_rfp = make_rfp(b)
+    r = _new(client, token, admin_a, rfp_id=b_rfp.id)
+    assert r.status_code == 404  # can't link another company's RFP
+
+
 def test_project_tenant_isolation(client, make_company, make_user, token):
     a, b = make_company("A"), make_company("B")
     admin_a = make_user(company=a, role="admin")

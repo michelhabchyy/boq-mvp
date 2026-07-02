@@ -229,6 +229,17 @@ class Project(Base):
     start_date: Mapped[date | None] = mapped_column(Date)
     end_date: Mapped[date | None] = mapped_column(Date)
     status: Mapped[str] = mapped_column(String(20), default="lead", index=True, nullable=False)
+
+    # --- financials (planned vs actual, filled after completion) ---
+    # Optional link to the RFP whose BoQ is the planned budget.
+    rfp_id: Mapped[int | None] = mapped_column(
+        ForeignKey("rfp_documents.id", ondelete="SET NULL"), index=True, nullable=True
+    )
+    planned_value: Mapped[float | None] = mapped_column(Numeric(16, 2))  # planned/estimated total
+    contract_value: Mapped[float | None] = mapped_column(Numeric(16, 2))  # amount awarded
+    actual_cost: Mapped[float | None] = mapped_column(Numeric(16, 2))  # actual spend
+    currency: Mapped[str] = mapped_column(String(8), default="SAR", nullable=False)
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

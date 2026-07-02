@@ -17,9 +17,14 @@ const LABEL = Object.fromEntries(STATUSES.map((s) => [s.key, s.label]));
 const COLOR = Object.fromEntries(STATUSES.map((s) => [s.key, s.color]));
 const ORDER = ["lead", "bidding", "shortlisted", "awarded", "in_progress", "completed"];
 
-const BLANK = { name: "", industry: "", fields: "", description: "", awarded_from: "", start_date: "", end_date: "" };
+const BLANK = {
+  name: "", industry: "", fields: "", description: "", awarded_from: "", start_date: "", end_date: "",
+  rfp_id: "", planned_value: "", contract_value: "", actual_cost: "", currency: "SAR",
+};
 const fmtDate = (d) => (d ? new Date(d).toLocaleDateString() : "");
 const fmtWhen = (d) => (d ? new Date(d).toLocaleString() : "");
+const money = (n, cur = "SAR") =>
+  n == null || n === "" ? "—" : `${cur} ${Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 
 function progress(status) {
   if (status === "lost") return { pct: 100, color: COLOR.lost };
@@ -79,6 +84,15 @@ export default function ProjectsPage() {
     { k: "Completed", v: countIn(["completed"]), c: COLOR.completed },
     { k: "Lost", v: countIn(["lost"]), c: COLOR.lost },
   ];
+
+  const finSum = (key, arr = list) => arr.reduce((a, p) => a + (Number(p[key]) || 0), 0);
+  const totalContract = finSum("contract_value");
+  const totalActual = finSum("actual_cost");
+  const grossMargin = totalContract - totalActual;
+  const costed = list.filter((p) => p.actual_cost != null && p.actual_cost !== "");
+  const plannedSum = finSum("planned_value", costed);
+  const actualSum = finSum("actual_cost", costed);
+  const hasFin = totalContract || totalActual || plannedSum;
 
   return (
     <main className="container">
@@ -167,6 +181,40 @@ export default function ProjectsPage() {
         </div>
       )}
 
+      {/* Financials summary */}
+      {projects && hasFin ? (
+        <section className="panel" style={{ marginTop: 20 }}>
+          <div className="panel-head">
+            <h2>Financials</h2>
+            <span className="tag">planned vs actual</span>
+          </div>
+          <div className="panel-body">
+            <div className="statbar" style={{ margin: 0 }}>
+              <div className="stat"><div className="k">Contract value awarded</div><div className="v">{money(totalContract)}</div></div>
+              <div className="stat"><div className="k">Actual cost</div><div className="v">{money(totalActual)}</div></div>
+              <div className="stat"><div className="k">Gross margin</div><div className="v" style={{ color: grossMargin >= 0 ? "var(--success)" : "var(--danger)" }}>{money(grossMargin)}</div></div>
+            </div>
+            {plannedSum > 0 && (
+              <div style={{ marginTop: 16 }}>
+                <div className="muted" style={{ fontSize: 12, marginBottom: 8 }}>
+                  Planned (from BoQ) vs actual — across projects with a recorded cost
+                </div>
+                <div style={{ display: "grid", gap: 8, maxWidth: 520 }}>
+                  <BarRow label="Planned" val={plannedSum} pct={(plannedSum / Math.max(plannedSum, actualSum, 1)) * 100} color="var(--accent)" />
+                  <BarRow label="Actual" val={actualSum} pct={(actualSum / Math.max(plannedSum, actualSum, 1)) * 100} color={actualSum > plannedSum ? "var(--danger)" : "var(--success)"} />
+                </div>
+                <div style={{ fontSize: 13, marginTop: 8 }}>
+                  Variance:{" "}
+                  <strong style={{ color: actualSum > plannedSum ? "var(--danger)" : "var(--success)" }}>
+                    {actualSum > plannedSum ? "+" : ""}{money(actualSum - plannedSum)} {actualSum > plannedSum ? "(over budget)" : "(under budget)"}
+                  </strong>
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+      ) : null}
+
       {/* Global activity log */}
       <section className="panel" style={{ marginTop: 22 }}>
         <div className="panel-head">
@@ -214,7 +262,14 @@ function ProjectModal({ mode, id, canAdmin, onClose, onSaved, busy, setBusy }) {
   const [status, setStatus] = useState("lead");
   const [note, setNote] = useState("");
   const [err, setErr] = useState(null);
+  const [rfps, setRfps] = useState([]);
+  const [boqTotal, setBoqTotal] = useState(null);
   const set = (k) => (e) => setF((p) => ({ ...p, [k]: e.target.value }));
+  const num = (v) => (v === "" || v == null ? null : Number(v));
+
+  useEffect(() => {
+    api.get("/rfps?limit=1000").then(setRfps).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (isNew) return;
@@ -224,9 +279,13 @@ function ProjectModal({ mode, id, canAdmin, onClose, onSaved, busy, setBusy }) {
         name: p.name || "", industry: p.industry || "", fields: p.fields || "",
         description: p.description || "", awarded_from: p.awarded_from || "",
         start_date: p.start_date || "", end_date: p.end_date || "",
+        rfp_id: p.rfp_id ?? "", planned_value: p.planned_value ?? "",
+        contract_value: p.contract_value ?? "", actual_cost: p.actual_cost ?? "",
+        currency: p.currency || "SAR",
       });
       setStatus(p.status);
       setEvents(d.events || []);
+      setBoqTotal(d.boq_total);
     }).catch((e) => setErr(String(e.message || e)));
   }, [isNew, id]);
 
@@ -234,7 +293,18 @@ function ProjectModal({ mode, id, canAdmin, onClose, onSaved, busy, setBusy }) {
     name: f.name, industry: f.industry || null, fields: f.fields || null,
     description: f.description || null, awarded_from: f.awarded_from || null,
     start_date: f.start_date || null, end_date: f.end_date || null,
+    rfp_id: f.rfp_id ? Number(f.rfp_id) : null,
+    planned_value: num(f.planned_value), contract_value: num(f.contract_value),
+    actual_cost: num(f.actual_cost), currency: f.currency || "SAR",
   });
+
+  const cur = f.currency || "SAR";
+  const planned = num(f.planned_value);
+  const contract = num(f.contract_value);
+  const actual = num(f.actual_cost);
+  const variance = planned != null && actual != null ? actual - planned : null; // + = over budget
+  const margin = contract != null && actual != null ? contract - actual : null;
+  const marginPct = margin != null && contract ? (margin / contract) * 100 : null;
 
   async function run(fn) {
     setBusy(true); setErr(null);
@@ -275,6 +345,64 @@ function ProjectModal({ mode, id, canAdmin, onClose, onSaved, busy, setBusy }) {
             <Field label="Description" full>
               <textarea className="input" rows={3} value={f.description} onChange={set("description")} disabled={!canAdmin} />
             </Field>
+          </div>
+
+          {/* Financials — planned (from RFP/BoQ) vs actual */}
+          <div style={{ borderTop: "1px solid var(--border)", margin: "16px 0 0", paddingTop: 14 }}>
+            <div className="eyebrow" style={{ marginBottom: 8 }}>Financials — planned vs actual</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 10 }}>
+              <Field label="Linked RFP (planned budget from its BoQ)" full>
+                <select className="input" value={f.rfp_id} onChange={set("rfp_id")} disabled={!canAdmin}>
+                  <option value="">— none —</option>
+                  {rfps.map((r) => <option key={r.id} value={r.id}>{r.filename}</option>)}
+                </select>
+              </Field>
+              {boqTotal != null && (
+                <div style={{ gridColumn: "1 / -1", fontSize: 12.5 }} className="muted">
+                  Planned from linked BoQ: <strong style={{ color: "var(--accent)" }}>{money(boqTotal, cur)}</strong>
+                  {canAdmin && (
+                    <button
+                      type="button" className="btn btn-sm btn-ghost" style={{ marginLeft: 8 }}
+                      onClick={() => setF((p) => ({ ...p, planned_value: Math.round(boqTotal) }))}
+                    >
+                      Use as planned
+                    </button>
+                  )}
+                </div>
+              )}
+              <Field label={`Planned value (${cur})`}>
+                <input className="input" type="number" value={f.planned_value} onChange={set("planned_value")} disabled={!canAdmin} />
+              </Field>
+              <Field label={`Contract value / awarded (${cur})`}>
+                <input className="input" type="number" value={f.contract_value} onChange={set("contract_value")} disabled={!canAdmin} />
+              </Field>
+              <Field label={`Actual cost (${cur})`}>
+                <input className="input" type="number" value={f.actual_cost} onChange={set("actual_cost")} disabled={!canAdmin} />
+              </Field>
+              <Field label="Currency">
+                <input className="input" value={f.currency} onChange={set("currency")} disabled={!canAdmin} placeholder="SAR" />
+              </Field>
+            </div>
+            {(variance != null || margin != null) && (
+              <div className="row" style={{ gap: 16, marginTop: 10, flexWrap: "wrap", fontSize: 13 }}>
+                {variance != null && (
+                  <span>
+                    Variance vs planned:{" "}
+                    <strong style={{ color: variance > 0 ? "var(--danger)" : "var(--success)" }}>
+                      {variance > 0 ? "+" : ""}{money(variance, cur)} {variance > 0 ? "(over)" : "(under)"}
+                    </strong>
+                  </span>
+                )}
+                {margin != null && (
+                  <span>
+                    Margin:{" "}
+                    <strong style={{ color: margin >= 0 ? "var(--success)" : "var(--danger)" }}>
+                      {money(margin, cur)}{marginPct != null ? ` (${marginPct.toFixed(1)}%)` : ""}
+                    </strong>
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
           {canAdmin && (
@@ -332,6 +460,18 @@ function Field({ label, children, full }) {
     <div className="field" style={{ marginTop: 0, gridColumn: full ? "1 / -1" : "auto" }}>
       {label && <label>{label}</label>}
       {children}
+    </div>
+  );
+}
+
+function BarRow({ label, val, pct, color }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 13 }}>
+      <span style={{ width: 66, color: "var(--text-muted)" }}>{label}</span>
+      <span style={{ flex: 1, height: 10, background: "var(--surface-3)", borderRadius: 6, overflow: "hidden" }}>
+        <span style={{ display: "block", height: "100%", width: `${pct}%`, background: color, borderRadius: 6 }} />
+      </span>
+      <span style={{ width: 120, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{money(val)}</span>
     </div>
   );
 }

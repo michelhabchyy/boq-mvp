@@ -64,6 +64,13 @@ def init_db() -> None:
         conn.execute(text("ALTER TABLE catalog_items DROP COLUMN IF EXISTS material_cost"))
         conn.execute(text("ALTER TABLE catalog_items DROP COLUMN IF EXISTS labour_cost"))
         conn.execute(text("ALTER TABLE catalog_items DROP COLUMN IF EXISTS markup"))
+        # Project financials (planned vs actual) + optional RFP link.
+        conn.execute(text("ALTER TABLE projects ADD COLUMN IF NOT EXISTS rfp_id INTEGER"))
+        conn.execute(text("ALTER TABLE projects ADD COLUMN IF NOT EXISTS planned_value NUMERIC(16,2)"))
+        conn.execute(text("ALTER TABLE projects ADD COLUMN IF NOT EXISTS contract_value NUMERIC(16,2)"))
+        conn.execute(text("ALTER TABLE projects ADD COLUMN IF NOT EXISTS actual_cost NUMERIC(16,2)"))
+        conn.execute(text("ALTER TABLE projects ADD COLUMN IF NOT EXISTS currency VARCHAR(8) DEFAULT 'SAR'"))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_projects_rfp_id ON projects (rfp_id)"))
         # Count unit alongside the measure unit.
         conn.execute(text("ALTER TABLE catalog_items ADD COLUMN IF NOT EXISTS count_unit VARCHAR(50)"))
         # Advanced catalog fields: industry/category/supplier/model/link/notes.

@@ -311,6 +311,11 @@ class ProjectIn(BaseModel):
     start_date: date | None = None
     end_date: date | None = None
     status: str | None = None  # defaults to "lead"
+    rfp_id: int | None = None
+    planned_value: float | None = None
+    contract_value: float | None = None
+    actual_cost: float | None = None
+    currency: str | None = None
 
 
 class ProjectUpdate(BaseModel):
@@ -321,6 +326,11 @@ class ProjectUpdate(BaseModel):
     awarded_from: str | None = None
     start_date: date | None = None
     end_date: date | None = None
+    rfp_id: int | None = None
+    planned_value: float | None = None
+    contract_value: float | None = None
+    actual_cost: float | None = None
+    currency: str | None = None
 
 
 class ProjectStatusIn(BaseModel):
@@ -340,6 +350,11 @@ class ProjectOut(BaseModel):
     start_date: date | None = None
     end_date: date | None = None
     status: str
+    rfp_id: int | None = None
+    planned_value: float | None = None
+    contract_value: float | None = None
+    actual_cost: float | None = None
+    currency: str = "SAR"
     created_at: datetime
     updated_at: datetime
 
@@ -358,6 +373,8 @@ class ProjectEventOut(BaseModel):
 class ProjectDetailOut(BaseModel):
     project: ProjectOut
     events: list[ProjectEventOut] = []
+    boq_total: float | None = None  # live BoQ total of the linked RFP (planned)
+    rfp_filename: str | None = None
 
 
 class ProjectActivityOut(BaseModel):
