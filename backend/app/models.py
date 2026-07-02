@@ -211,6 +211,56 @@ class Document(Base):
     )
 
 
+class Project(Base):
+    """A company's project/opportunity tracked through a bidding→delivery
+    pipeline (status), with a full change history in ProjectEvent."""
+
+    __tablename__ = "projects"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    company_id: Mapped[int] = mapped_column(
+        ForeignKey("companies.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(300), nullable=False)
+    industry: Mapped[str | None] = mapped_column(String(120))
+    fields: Mapped[str | None] = mapped_column(String(300))  # disciplines / scope areas
+    description: Mapped[str | None] = mapped_column(Text)
+    awarded_from: Mapped[str | None] = mapped_column(String(200))  # client / awarding body
+    start_date: Mapped[date | None] = mapped_column(Date)
+    end_date: Mapped[date | None] = mapped_column(Date)
+    status: Mapped[str] = mapped_column(String(20), default="lead", index=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
+class ProjectEvent(Base):
+    """A pipeline change on a project (created / status moved), kept as history."""
+
+    __tablename__ = "project_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    company_id: Mapped[int] = mapped_column(
+        ForeignKey("companies.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    from_status: Mapped[str | None] = mapped_column(String(20))
+    to_status: Mapped[str] = mapped_column(String(20), nullable=False)
+    note: Mapped[str | None] = mapped_column(Text)
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    username: Mapped[str | None] = mapped_column(String(160))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True, nullable=False
+    )
+
+
 class RecoveryCode(Base):
     """A single-use 2FA backup code. Only the hash is stored; the plaintext is
     shown to the user once at generation."""

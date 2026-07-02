@@ -29,6 +29,7 @@ from .routers import (
     my_items,
     output,
     plans,
+    projects,
     rfp,
     subcontractors,
     usage,
@@ -127,6 +128,7 @@ app.include_router(output.router)
 app.include_router(usage.router)
 app.include_router(dashboard.router)
 app.include_router(documents.router)
+app.include_router(projects.router)
 
 
 @app.get("/health")

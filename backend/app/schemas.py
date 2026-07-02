@@ -1,6 +1,6 @@
 """Pydantic schemas for API input/output."""
 
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict
 
@@ -296,6 +296,68 @@ class DocumentOut(BaseModel):
     size: int = 0
     uploaded_by_name: str | None = None
     created_at: datetime
+
+
+# Project pipeline stages, in order (plus "lost" as the terminal miss).
+PROJECT_STATUSES = ["lead", "bidding", "shortlisted", "awarded", "in_progress", "completed", "lost"]
+
+
+class ProjectIn(BaseModel):
+    name: str
+    industry: str | None = None
+    fields: str | None = None
+    description: str | None = None
+    awarded_from: str | None = None
+    start_date: date | None = None
+    end_date: date | None = None
+    status: str | None = None  # defaults to "lead"
+
+
+class ProjectUpdate(BaseModel):
+    name: str | None = None
+    industry: str | None = None
+    fields: str | None = None
+    description: str | None = None
+    awarded_from: str | None = None
+    start_date: date | None = None
+    end_date: date | None = None
+
+
+class ProjectStatusIn(BaseModel):
+    status: str
+    note: str | None = None
+
+
+class ProjectOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    industry: str | None = None
+    fields: str | None = None
+    description: str | None = None
+    awarded_from: str | None = None
+    start_date: date | None = None
+    end_date: date | None = None
+    status: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class ProjectEventOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    from_status: str | None = None
+    to_status: str
+    note: str | None = None
+    username: str | None = None
+    created_at: datetime
+
+
+class ProjectDetailOut(BaseModel):
+    project: ProjectOut
+    events: list[ProjectEventOut] = []
 
 
 class ItemAuditOut(BaseModel):
