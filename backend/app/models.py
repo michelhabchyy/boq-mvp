@@ -272,6 +272,58 @@ class ProjectEvent(Base):
     )
 
 
+class CapabilityField(Base):
+    """A field/discipline the company works in (top of the capability tree)."""
+
+    __tablename__ = "capability_fields"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    company_id: Mapped[int] = mapped_column(
+        ForeignKey("companies.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class CapabilityService(Base):
+    """A service the company provides within a field."""
+
+    __tablename__ = "capability_services"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    company_id: Mapped[int] = mapped_column(
+        ForeignKey("companies.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    field_id: Mapped[int] = mapped_column(
+        ForeignKey("capability_fields.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class CapabilitySubService(Base):
+    """A sub-service under a service, delivered in-house or externally."""
+
+    __tablename__ = "capability_sub_services"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    company_id: Mapped[int] = mapped_column(
+        ForeignKey("companies.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    service_id: Mapped[int] = mapped_column(
+        ForeignKey("capability_services.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    in_house: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
 class RecoveryCode(Base):
     """A single-use 2FA backup code. Only the hash is stored; the plaintext is
     shown to the user once at generation."""

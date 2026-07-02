@@ -263,12 +263,14 @@ function ProjectModal({ mode, id, canAdmin, onClose, onSaved, busy, setBusy }) {
   const [note, setNote] = useState("");
   const [err, setErr] = useState(null);
   const [rfps, setRfps] = useState([]);
+  const [caps, setCaps] = useState([]);
   const [boqTotal, setBoqTotal] = useState(null);
   const set = (k) => (e) => setF((p) => ({ ...p, [k]: e.target.value }));
   const num = (v) => (v === "" || v == null ? null : Number(v));
 
   useEffect(() => {
     api.get("/rfps?limit=1000").then(setRfps).catch(() => {});
+    api.get("/capabilities").then(setCaps).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -306,6 +308,17 @@ function ProjectModal({ mode, id, canAdmin, onClose, onSaved, busy, setBusy }) {
   const margin = contract != null && actual != null ? contract - actual : null;
   const marginPct = margin != null && contract ? (margin / contract) * 100 : null;
 
+  // Field/services driven by the company capability tree.
+  const capField = caps.find((c) => c.name === f.industry);
+  const selServices = (f.fields || "").split(",").map((s) => s.trim()).filter(Boolean);
+  const onFieldChange = (e) => setF((p) => ({ ...p, industry: e.target.value, fields: "" }));
+  const toggleSvc = (name) =>
+    setF((p) => {
+      const set2 = new Set((p.fields || "").split(",").map((s) => s.trim()).filter(Boolean));
+      set2.has(name) ? set2.delete(name) : set2.add(name);
+      return { ...p, fields: [...set2].join(", ") };
+    });
+
   async function run(fn) {
     setBusy(true); setErr(null);
     try { await fn(); } catch (e) { setErr(String(e.message || e)); setBusy(false); }
@@ -327,14 +340,51 @@ function ProjectModal({ mode, id, canAdmin, onClose, onSaved, busy, setBusy }) {
             <Field label="Project name" full>
               <input className="input" value={f.name} onChange={set("name")} disabled={!canAdmin} required />
             </Field>
-            <Field label="Industry">
-              <input className="input" value={f.industry} onChange={set("industry")} disabled={!canAdmin} placeholder="Electrical, Civil…" />
+            <Field label="Field">
+              {caps.length ? (
+                <select className="input" value={f.industry} onChange={onFieldChange} disabled={!canAdmin}>
+                  <option value="">— select field —</option>
+                  {caps.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
+                  {f.industry && !capField && <option value={f.industry}>{f.industry}</option>}
+                </select>
+              ) : (
+                <input className="input" value={f.industry} onChange={set("industry")} disabled={!canAdmin} placeholder="Electrical, Civil…" />
+              )}
             </Field>
             <Field label="Awarded from / client">
               <input className="input" value={f.awarded_from} onChange={set("awarded_from")} disabled={!canAdmin} placeholder="Ministry of…, ACME Dev" />
             </Field>
-            <Field label="Fields / scope">
-              <input className="input" value={f.fields} onChange={set("fields")} disabled={!canAdmin} placeholder="HVAC, Plumbing, Fit-out" />
+            <Field label="Services / scope" full>
+              {caps.length === 0 ? (
+                <input className="input" value={f.fields} onChange={set("fields")} disabled={!canAdmin} placeholder="HVAC, Plumbing, Fit-out" />
+              ) : !capField ? (
+                <span className="muted" style={{ fontSize: 12 }}>Select a field to choose its services.</span>
+              ) : (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {capField.services.length === 0 && (
+                    <span className="muted" style={{ fontSize: 12 }}>No services defined for this field yet.</span>
+                  )}
+                  {capField.services.map((sv) => {
+                    const on = selServices.includes(sv.name);
+                    return (
+                      <label key={sv.id} className="badge" style={{
+                        cursor: canAdmin ? "pointer" : "default", display: "inline-flex", alignItems: "center", gap: 6,
+                        background: on ? "var(--accent-soft)" : "var(--surface-3)",
+                        color: on ? "var(--accent-text)" : "var(--text-muted)", border: "1px solid var(--border)",
+                      }}>
+                        <input type="checkbox" checked={on} disabled={!canAdmin} onChange={() => toggleSvc(sv.name)} style={{ margin: 0 }} />
+                        {sv.name}
+                      </label>
+                    );
+                  })}
+                  {selServices.filter((s) => !capField.services.some((sv) => sv.name === s)).map((s) => (
+                    <label key={s} className="badge" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "var(--accent-soft)", color: "var(--accent-text)", border: "1px solid var(--border)" }}>
+                      <input type="checkbox" checked disabled={!canAdmin} onChange={() => toggleSvc(s)} style={{ margin: 0 }} />
+                      {s}
+                    </label>
+                  ))}
+                </div>
+              )}
             </Field>
             <Field label="Timing">
               <div className="row" style={{ gap: 8 }}>

@@ -21,6 +21,7 @@ from .observability import configure_logging, get_logger, init_sentry
 from .routers import (
     auth,
     boq,
+    capabilities,
     catalog,
     companies,
     dashboard,
@@ -129,6 +130,7 @@ app.include_router(usage.router)
 app.include_router(dashboard.router)
 app.include_router(documents.router)
 app.include_router(projects.router)
+app.include_router(capabilities.router)
 
 
 @app.get("/health")

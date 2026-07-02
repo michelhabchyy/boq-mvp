@@ -377,6 +377,42 @@ class ProjectDetailOut(BaseModel):
     rfp_filename: str | None = None
 
 
+class NameIn(BaseModel):
+    name: str
+
+
+class NameUpdate(BaseModel):
+    name: str
+
+
+class SubServiceIn(BaseModel):
+    name: str
+    in_house: bool = True
+
+
+class SubServiceUpdate(BaseModel):
+    name: str | None = None
+    in_house: bool | None = None
+
+
+class CapabilitySubServiceOut(BaseModel):
+    id: int
+    name: str
+    in_house: bool
+
+
+class CapabilityServiceOut(BaseModel):
+    id: int
+    name: str
+    sub_services: list[CapabilitySubServiceOut] = []
+
+
+class CapabilityFieldOut(BaseModel):
+    id: int
+    name: str
+    services: list[CapabilityServiceOut] = []
+
+
 class ProjectActivityOut(BaseModel):
     id: int
     project_id: int
