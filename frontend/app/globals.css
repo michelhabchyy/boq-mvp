@@ -360,11 +360,14 @@ input[type="file"] {
   background: #f6fbf7;
 }
 .cell-actions {
-  white-space: nowrap;
   text-align: right;
 }
 .cell-actions .btn {
-  margin-left: 5px;
+  display: inline-flex;
+  align-items: center;
+  margin: 2px 0 2px 5px;
+  vertical-align: middle;
+  white-space: nowrap;
 }
 
 /* ---------- Badges / pills ---------- */

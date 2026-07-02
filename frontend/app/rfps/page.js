@@ -9,11 +9,6 @@ export default function RfpsPage() {
   const [runnable, setRunnable] = useState([]);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(null);
-  const [aiAnalyze, setAiAnalyze] = useState(true);
-  const [rfpFile, setRfpFile] = useState(null);
-  const [sampleFile, setSampleFile] = useState(null);
-  const [description, setDescription] = useState("");
-  const [formKey, setFormKey] = useState(0);
 
   const load = useCallback(
     () =>
@@ -37,28 +32,6 @@ export default function RfpsPage() {
       return () => clearTimeout(t);
     }
   }, [rfps, load]);
-
-  async function doUpload() {
-    if (!rfpFile) return;
-    setBusy("upload");
-    setError(null);
-    try {
-      const fd = new FormData();
-      fd.append("file", rfpFile);
-      if (description.trim()) fd.append("description", description.trim());
-      if (aiAnalyze && sampleFile) fd.append("sample", sampleFile);
-      await api.uploadForm(`/rfps/upload?analyze=${aiAnalyze}`, fd);
-      setRfpFile(null);
-      setSampleFile(null);
-      setDescription("");
-      setFormKey((k) => k + 1); // remount file inputs to clear them
-      await load();
-    } catch (err) {
-      setError(String(err.message || err));
-    } finally {
-      setBusy(null);
-    }
-  }
 
   async function runFromProject(fileId) {
     setBusy(`run-${fileId}`);
@@ -85,109 +58,38 @@ export default function RfpsPage() {
     }
   }
 
+  const pending = runnable.filter((f) => !f.rfp_document_id);
+
   return (
-    <main className="container narrow">
+    <main className="container">
       <div className="eyebrow">Bill of Quantities · AR / EN</div>
-      <h1 className="page-title">RFP Workspace</h1>
-      <p className="page-sub">
-        Upload a scope of work, run the matching engine, then review and export a
-        bilingual BoQ.
-      </p>
+      <div className="between">
+        <div>
+          <h1 className="page-title" style={{ margin: 0 }}>RFP Workspace</h1>
+          <p className="page-sub" style={{ margin: "6px 0 0" }}>
+            Run an RFP attached to one of your projects, then review and export a
+            bilingual BoQ.
+          </p>
+        </div>
+        <Link className="btn btn-primary" href="/projects">Manage projects →</Link>
+      </div>
 
-      {error && <div className="alert">{error}</div>}
+      {error && <div className="alert" style={{ marginTop: 12 }}>{error}</div>}
 
-      <section className="panel">
+      <section className="panel" style={{ marginTop: 14 }}>
         <div className="panel-head">
-          <h2>Upload RFP</h2>
-          <span className="tag">.xlsx · .docx · .pdf</span>
+          <h2>From your projects</h2>
+          <span className="tag">{pending.length ? `${pending.length} ready to run` : "attach RFPs in Projects"}</span>
         </div>
-        <div className="panel-body">
-          <div className="field" style={{ marginTop: 0 }}>
-            <label>RFP file</label>
-            <input
-              key={`rfp-${formKey}`}
-              type="file"
-              accept=".xlsx,.docx,.pdf"
-              onChange={(e) => setRfpFile(e.target.files?.[0] || null)}
-              disabled={busy === "upload"}
-            />
+        {runnable.length === 0 ? (
+          <div className="empty">
+            No RFP files yet. Open a project and add an RFP under{" "}
+            <strong>Files — RFPs &amp; BoQ templates</strong>, then run it here or from the project.
+            <div style={{ marginTop: 12 }}>
+              <Link className="btn btn-sm btn-primary" href="/projects">Go to Projects</Link>
+            </div>
           </div>
-
-          <label className="row" style={{ marginTop: 12, gap: 6, cursor: "pointer" }}>
-            <input
-              type="checkbox"
-              checked={aiAnalyze}
-              onChange={(e) => setAiAnalyze(e.target.checked)}
-            />
-            <span style={{ fontSize: 13 }}>
-              <strong>AI analysis</strong> — reads the whole document (multi-sheet
-              Excel, Word, or PDF) and extracts sections + items. Required for PDF;
-              uncheck only for a clean single-sheet BoQ table.
-            </span>
-          </label>
-
-          {aiAnalyze && (
-            <>
-              <div className="field">
-                <label>Your prompt / instructions for the AI (optional)</label>
-                <textarea
-                  className="input"
-                  rows={4}
-                  placeholder={
-                    "Describe the RFP and tell the agent how to analyze and distribute it. e.g.:\n" +
-                    "• MEP tender for a hospital — group items into scopes by discipline (HVAC, Electrical, Plumbing).\n" +
-                    "• Quantities are in the 'Qty' column; ignore the preliminaries/terms.\n" +
-                    "• Keep item names short; split civil vs finishing into separate scopes."
-                  }
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                />
-                <div className="tag" style={{ marginTop: 4 }}>
-                  Combined with the built-in prompt to steer the section/item
-                  distribution and level of detail.
-                </div>
-              </div>
-
-              <div className="field">
-                <label>Reference BoQ template / sample (optional)</label>
-                <input
-                  key={`sample-${formKey}`}
-                  type="file"
-                  accept=".xlsx,.docx,.pdf"
-                  onChange={(e) => setSampleFile(e.target.files?.[0] || null)}
-                />
-                <div className="tag" style={{ marginTop: 4 }}>
-                  If you have a sample BoQ, the AI mirrors its structure & columns.
-                </div>
-              </div>
-            </>
-          )}
-
-          <div className="row" style={{ marginTop: 14 }}>
-            <button
-              className="btn btn-primary"
-              onClick={doUpload}
-              disabled={!rfpFile || busy === "upload"}
-            >
-              {busy === "upload"
-                ? aiAnalyze
-                  ? "Uploading…"
-                  : "Processing…"
-                : aiAnalyze
-                ? "Upload & analyze"
-                : "Upload"}
-            </button>
-            {rfpFile && <span className="muted" style={{ fontSize: 13 }}>{rfpFile.name}</span>}
-          </div>
-        </div>
-      </section>
-
-      {runnable.length > 0 && (
-        <section className="panel">
-          <div className="panel-head">
-            <h2>From your projects</h2>
-            <span className="tag">choose one to run</span>
-          </div>
+        ) : (
           <table className="table">
             <thead>
               <tr>
@@ -220,8 +122,8 @@ export default function RfpsPage() {
               ))}
             </tbody>
           </table>
-        </section>
-      )}
+        )}
+      </section>
 
       <section className="panel">
         <div className="panel-head">
@@ -230,7 +132,7 @@ export default function RfpsPage() {
         </div>
         {!rfps && !error && <div className="empty">Loading…</div>}
         {rfps && rfps.length === 0 && (
-          <div className="empty">No RFPs yet — upload one above to get started.</div>
+          <div className="empty">No RFPs yet — attach one to a project and run it above.</div>
         )}
         {rfps && rfps.length > 0 && (
           <table className="table">
@@ -274,7 +176,7 @@ export default function RfpsPage() {
                         <div>
                           <span className="badge badge-red">failed</span>
                           {r.error && (
-                            <div style={{ fontSize: 11, color: "var(--danger)", marginTop: 3, maxWidth: 320 }}>
+                            <div style={{ fontSize: 11, color: "var(--danger)", marginTop: 3, maxWidth: 320, whiteSpace: "normal" }}>
                               {r.error}
                             </div>
                           )}
